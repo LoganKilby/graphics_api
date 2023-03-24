@@ -3,3 +3,4 @@ main.obj
 *.ilk
 *.pdb
 *.exe
+build/win32_main.obj
