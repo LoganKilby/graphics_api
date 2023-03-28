@@ -3,6 +3,8 @@
 #ifndef WIN32_PLATFORM_H
 #define WIN32_PLATFORM_H
 
+#include "Windows.h"
+
 #define WINMSG_MAX_PROCESSING_DURATION 7 // milliseconds.. arbitrarily chosen
 
 class WinMsg_Timer {
