@@ -6,9 +6,6 @@
 #include <GL/gl.h>
 #include "opengl.h"
 
-LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-static int win32_set_pixel_format(HDC);
-
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow) {
     char *window_class_name = "graphics api test";
     WNDCLASSA window_class = {};
@@ -23,10 +20,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
                                window_class_name,          // Window class
                                "Learn to Program Windows", // Window text
                                WS_OVERLAPPEDWINDOW,        // Window style
-                               
                                // Size and position
                                CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
-                               
                                NULL,      // Parent window    
                                NULL,      // Menu
                                hInstance, // Instance handle
@@ -35,18 +30,21 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     
     assert(hwnd);
     
-    HDC hdc = GetDC(hwnd);
-    win32_set_pixel_format(hdc);
-    HGLRC rendering_context = wglCreateContext(hdc);
-    wglMakeCurrent(hdc, rendering_context);
-    ReleaseDC(hwnd, hdc);
-    
     ShowWindow(hwnd, nCmdShow);
     
+    glClearColor(0, 1, 1, 0);
+    
+    HDC hdc;
     MSG msg = {};
     while(GetMessage(&msg, 0, 0, 0)) {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
+        
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+        
+        hdc = GetDC(hwnd);
+        SwapBuffers(hdc);
+        ReleaseDC(hwnd, hdc);
     }
 }
 
@@ -62,7 +60,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
         } break;
         
         case WM_PAINT: {
-            win32_on_paint(hwnd);
+            
         } break;
         
         case WM_DESTROY: {
@@ -70,6 +68,13 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
         }
         
         case WM_CREATE: {
+            HDC hdc = GetDC(hwnd);
+            win32_set_pixel_format(hdc);
+            
+            HGLRC hglrc = wglCreateContext(hdc);
+            win32_assert(hglrc);
+            
+            wglMakeCurrent(hdc, hglrc);
             
         } break;
         
@@ -82,28 +87,27 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 }
 
 static int win32_set_pixel_format(HDC hdc) {
-    WINMSG_DEBUG_TIMER;
-    
     PIXELFORMATDESCRIPTOR pixel_struct =  {
         sizeof(PIXELFORMATDESCRIPTOR), // nSize
         1, // nVersion
         PFD_SUPPORT_OPENGL | PFD_DRAW_TO_WINDOW | PFD_DOUBLEBUFFER, // dwFlags
         PFD_TYPE_RGBA, // iPixelType
-        24, // cColorBits
+        32, // cColorBits
+        8,  // cRedBits
         0,  // cRedShift
-        0,  // cGreenBits
+        8,  // cGreenBits
         0,  // cGreenShift
-        0,  // cBlueBits
+        8,  // cBlueBits
         0,  // cBlueShift
-        0,  // cAlphaBits
+        8,  // cAlphaBits
         0,  // cAlphaShift
         0,  // cAccumBits
         0,  // cAccumRedBits
         0,  // cAccumGreenBits
         0,  // cAccumBlueBits
         0,  // cAccumAlphaBits
-        32, // cDepthBits
-        32, // cStencilBits
+        24, // cDepthBits
+        8,  // cStencilBits
         0,  // cAuxBuffers
         0,  // iLayerType
         0,  // bReserved
@@ -115,21 +119,36 @@ static int win32_set_pixel_format(HDC hdc) {
     int pixel_format = ChoosePixelFormat(hdc, &pixel_struct);
     SetPixelFormat(hdc, pixel_format, &pixel_struct);
     
+#ifdef DEBUG
+    DescribePixelFormat(hdc, pixel_format, sizeof(PIXELFORMATDESCRIPTOR), &pixel_struct);
+    
+    win32_debug_enumerate_pixel_formats(hdc);
+#endif
+    
     return pixel_format;
 }
 
-static int win32_debug_enumerate_pixel_formats(HDC hdc) {
-    int pixel_format_count;
-    int pixel_format_index = 0;
-    PIXELFORMATDESCRIPTOR ppfd;
+static void win32_debug_enumerate_pixel_formats(HDC hdc) {
+    // local variables  
+    int                      iMax ; 
+    PIXELFORMATDESCRIPTOR    pfd; 
+    int                      iPixelFormat ; 
     
-    do {
-        pixel_format_count = DescribePixelFormat(hdc, pixel_format_index++, sizeof(PIXELFORMATDESCRIPTOR), &ppfd);
-        
-        if(pixel_format_count == 0)
-            break;
-        
-    } while(pixel_format_index < pixel_format_count);
+    // initialize a pixel format index variable  
+    iPixelFormat = 1; 
     
-    return pixel_format_count;
+    // keep obtaining and examining pixel format data...  
+    do { 
+        // try to obtain some pixel format data  
+        iMax = DescribePixelFormat(hdc, iPixelFormat, sizeof(pfd), &pfd); 
+        
+        // if there was some problem with that...   
+        if (iMax == 0) 
+            
+            // return indicating failure  
+            return; 
+    }  
+    
+    // ...until we've looked at all the device context's pixel formats  
+    while (++iPixelFormat <= iMax);
 }

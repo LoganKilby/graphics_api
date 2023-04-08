@@ -6,7 +6,7 @@
 #ifdef DEBUG
 #define assert(expression) if(!(expression)) { *(int *)0 = 0; }
 #else
-#defines assert(expression)
+#define assert(expression)
 #endif
 
 
