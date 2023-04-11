@@ -6,6 +6,11 @@ set debug_opts=-DDEBUG -FC -GR- -EHa- -nologo -Od -Zi -Oi -fp:fast -fp:except- -
 set libs=User32.lib Opengl32.lib Gdi32.lib
 
 set code=%cd%
+
 pushd build
 cl %debug_opts% %code%\win32_main.cpp -Fetest /link %libs%
+cl /LDd %debug_opts% %code%\app.cpp /link Opengl32.lib
 popd
+
+
+
