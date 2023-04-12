@@ -11,11 +11,20 @@
 #define assert(expression)
 #endif
 
+#define internal static
+#define global static
+#define local static
+
 typedef uint64_t u64;
+typedef uint32_t u32;
+typedef uint8_t u8;
+typedef int32_t s32;
 
 // converting to bytes
 #define kilobytes(kibs) kibs * 1024
 #define megabytes(megs) megs * kilobytes(1024)
 #define gigabytes(gigs) gigs * megabytes(1024)
+
+#define countof(array) (sizeof(array) / sizeof(array[0]))
 
 #endif //DEFINES_H

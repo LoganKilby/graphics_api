@@ -1,8 +1,5 @@
-// Graphics api driver program
-
 #include "defines.h"
 #include "platform.h"
-#include <d2d1.h>
 #include "app.h"
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow) {
@@ -17,7 +14,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
                                // Optional window styles
                                CS_OWNDC | CS_HREDRAW | CS_VREDRAW, 
                                window_class_name,          // Window class
-                               "Learn to Program Windows", // Window text
+                               "App", // Window text
                                WS_OVERLAPPEDWINDOW,        // Window style
                                // Size and position
                                CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
@@ -30,13 +27,23 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     
     ShowWindow(hwnd, nCmdShow);
     
+#ifdef DEBUG
+    BOOL dll_copy_result = CopyFile("app.dll", "app.copy.dll", false);
+    assert(dll_copy_result);
+    HINSTANCE dll_handle = LoadLibrary("app.copy.dll");
+    FILETIME current_dll_write_time = win32_get_file_time("app.copy.dll");
+#else
     HINSTANCE dll_handle = LoadLibrary("app.dll");
-    FILETIME current_dll_write = win32_get_file_time("app.dll");
+#endif
+    
     Update_And_Render_Ptr update_and_render = (Update_And_Render_Ptr)GetProcAddress(dll_handle, "update_and_render");
     
     Application_Memory memory = {};
-    memory.size = kilobytes(16);
-    memory.base_address = VirtualAlloc(0, memory.size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    assert(sizeof(Application_State) < APP_MEMORY_SIZE);
+    memory.size = APP_MEMORY_SIZE;
+    memory.base_address = VirtualAlloc(0, APP_MEMORY_SIZE, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    
+    global_input_state = {};
     
     HDC hdc;
     MSG msg = {};
@@ -44,16 +51,20 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
         TranslateMessage(&msg);
         DispatchMessage(&msg);
         
-        // TODO(lmk): Create a copy of the dll at runtime. Use one for compilation and the other for execution!!
-        FILETIME last_dll_write = win32_get_file_time("app.dll");
-        if(CompareFileTime(&current_dll_write, &last_dll_write) == 1) {
+#ifdef DEBUG // Hot reload
+        FILETIME last_dll_write_time = win32_get_file_time("app.dll");
+        if(CompareFileTime(&current_dll_write_time, &last_dll_write_time) == -1) {
             FreeLibrary(dll_handle);
-            dll_handle = LoadLibrary("app.dll");
+            dll_copy_result = CopyFile("app.dll", "app.copy.dll", false);
+            assert(dll_copy_result);
+            
+            dll_handle = LoadLibrary("app.copy.dll");
             update_and_render = (Update_And_Render_Ptr)GetProcAddress(dll_handle, "update_and_render");
-            current_dll_write = last_dll_write;
+            current_dll_write_time = last_dll_write_time;
         }
+#endif
         
-        update_and_render(0);
+        update_and_render(&memory, &global_input_state);
         
         hdc = GetDC(hwnd);
         SwapBuffers(hdc);
@@ -69,11 +80,6 @@ LRESULT CALLBACK win32_window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
         case WM_SIZE: {
             int width = LOWORD(lParam);
             int height = HIWORD(lParam);
-            //win32_on_size(&hwnd, (unsigned int)wParam, width, height);
-        } break;
-        
-        case WM_PAINT: {
-            
         } break;
         
         case WM_DESTROY: {
@@ -88,7 +94,92 @@ LRESULT CALLBACK win32_window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
             win32_assert(hglrc);
             
             wglMakeCurrent(hdc, hglrc);
+        } break;
+        
+        case WM_MOUSEWHEEL: {
+            s32 scroll_delta = GET_WHEEL_DELTA_WPARAM(wParam) / WHEEL_DELTA;
             
+            Input_Event event = {};
+            event.device = Input_Device::Mouse;
+            event.gesture = Input_Gesture::Scroll;
+            event.button = Input_Button::Mouse_MButton;
+            event.sys_modifiers = win32_repack_key_state(wParam);
+            event.screen_position.y = scroll_delta;
+            push_input_event(event);
+        } break;
+        
+        case WM_MBUTTONUP: {
+            iv2 mouse_position = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+            
+            Input_Event event = {};
+            event.device = Input_Device::Mouse;
+            event.gesture = Input_Gesture::Release;
+            event.button = Input_Button::Mouse_MButton;
+            event.sys_modifiers = win32_repack_key_state(wParam);
+            event.screen_position = mouse_position;
+            push_input_event(event);
+        } break;
+        
+        case WM_MBUTTONDOWN: {
+            iv2 mouse_position = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+            
+            Input_Event event = {};
+            event.device = Input_Device::Mouse;
+            event.gesture = Input_Gesture::Press;
+            event.button = Input_Button::Mouse_MButton;
+            event.sys_modifiers = win32_repack_key_state(wParam);
+            event.screen_position = mouse_position;
+            push_input_event(event);
+        } break;
+        
+        case WM_RBUTTONDOWN: {
+            iv2 mouse_position = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+            
+            Input_Event event = {};
+            event.device = Input_Device::Mouse;
+            event.gesture = Input_Gesture::Press;
+            event.button = Input_Button::Mouse_RButton;
+            event.sys_modifiers = win32_repack_key_state(wParam);
+            event.screen_position = mouse_position;
+            push_input_event(event);
+        } break;
+        
+        case WM_RBUTTONUP: {
+            iv2 mouse_position = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+            
+            Input_Event event = {};
+            event.device = Input_Device::Mouse;
+            event.gesture = Input_Gesture::Release;
+            event.button = Input_Button::Mouse_RButton;
+            event.sys_modifiers = win32_repack_key_state(wParam);
+            event.screen_position = mouse_position;
+            push_input_event(event);
+        } break;
+        
+        case WM_LBUTTONDOWN:
+        {
+            iv2 mouse_position = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+            
+            Input_Event event = {};
+            event.device = Input_Device::Mouse;
+            event.gesture = Input_Gesture::Press;
+            event.button = Input_Button::Mouse_LButton;
+            event.sys_modifiers = win32_repack_key_state(wParam);
+            event.screen_position = mouse_position;
+            push_input_event(event);
+        } break;
+        
+        case WM_LBUTTONUP:
+        {
+            iv2 mouse_position = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+            
+            Input_Event event = {};
+            event.device = Input_Device::Mouse;
+            event.gesture = Input_Gesture::Release;
+            event.button = Input_Button::Mouse_LButton;
+            event.sys_modifiers = win32_repack_key_state(wParam);
+            event.screen_position = mouse_position;
+            push_input_event(event);
         } break;
         
         default: {
@@ -99,7 +190,7 @@ LRESULT CALLBACK win32_window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
     return result;
 }
 
-static int win32_set_pixel_format(HDC hdc) {
+internal int win32_set_pixel_format(HDC hdc) {
     PIXELFORMATDESCRIPTOR pixel_struct =  {
         sizeof(PIXELFORMATDESCRIPTOR), // nSize
         1, // nVersion
@@ -141,7 +232,7 @@ static int win32_set_pixel_format(HDC hdc) {
     return pixel_format;
 }
 
-static void win32_debug_enumerate_pixel_formats(HDC hdc) {
+internal void win32_debug_enumerate_pixel_formats(HDC hdc) {
     // local variables  
     int                      iMax ; 
     PIXELFORMATDESCRIPTOR    pfd; 
@@ -166,7 +257,7 @@ static void win32_debug_enumerate_pixel_formats(HDC hdc) {
     while (++iPixelFormat <= iMax);
 }
 
-static FILETIME win32_get_file_time(char *file_name) {
+internal FILETIME win32_get_file_time(char *file_name) {
     HANDLE file_handle = CreateFileA(file_name,
                                      GENERIC_READ,
                                      0,
@@ -175,12 +266,45 @@ static FILETIME win32_get_file_time(char *file_name) {
                                      FILE_ATTRIBUTE_NORMAL,
                                      0);
     
-    assert(file_handle != INVALID_HANDLE_VALUE);
-    
     FILETIME result = {};
-    BOOL file_time_status = GetFileTime(file_handle, 0, 0, &result);
-    assert(file_time_status);
-    CloseHandle(file_handle);
+    
+    if(file_handle != INVALID_HANDLE_VALUE) {
+        BOOL file_time_status = GetFileTime(file_handle, 0, 0, &result);
+        assert(file_time_status);
+        CloseHandle(file_handle);
+    }
     
     return result;
+}
+
+
+internal u32 win32_repack_key_state(WPARAM wParam) {
+    u32 result = 0;
+    
+    u32 win32_key_state = GET_KEYSTATE_WPARAM(wParam);
+    
+    if(win32_key_state & MK_CONTROL)
+        result |= SysMod_Ctrl;
+    
+    if(win32_key_state & MK_SHIFT)
+        result |= SysMod_Shift;
+    
+    if(GetKeyState(VK_MENU)< 0)
+        result |= SysMod_Alt;
+    
+    return result;
+}
+
+__declspec(dllexport) u8 *win32_read_entire_file(char *file_name, Arena *memory_arena, u32 *bytes_read) {
+    HANDLE file_handle = CreateFileA(file_name, GENERIC_READ, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+    assert(file_handle != INVALID_HANDLE_VALUE);
+    
+    u32 file_size = GetFileSize(file_handle, 0);
+    u8 *file_buffer = allocate(memory_arena, file_size);
+    
+    DWORD b;
+    BOOL read_status = ReadFile(file_handle, file_buffer, file_size, &b, 0);
+    assert(read_status);
+    
+    return file_buffer;
 }

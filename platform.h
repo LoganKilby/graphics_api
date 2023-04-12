@@ -3,8 +3,6 @@
 #ifndef PLATFORM_H
 #define PLATFORM_H
 
-#include "defines.h"
-
 #if defined(_WIN64)
 #include "win32_platform.h"
 #elif defined(__APPLE__)
@@ -13,9 +11,30 @@
 #error No platform defined
 #endif
 
+#include "vector_math.h"
+
 struct Application_Memory {
     void *base_address;
     u64 size;
 };
+
+struct Arena {
+    void *base_address;
+    u64 size;
+    u64 allocated;
+};
+
+typedef u8 *(__cdecl *OS_Read_Entire_File_Ptr)(char *, Arena *, u32 *);
+
+u8 *allocate(Arena *arena, u32 size) {
+    u8 *result = 0;
+    
+    if(size < (arena->size - arena->allocated)) {
+        result = (u8 *)arena->base_address + arena->allocated;
+        arena->allocated += size;
+    }
+    
+    return result;
+}
 
 #endif //PLATFORM_H

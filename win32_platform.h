@@ -4,7 +4,8 @@
 #define WIN32_PLATFORM_H
 
 #include "Windows.h"
-#include "stdint.h"
+#include "Windowsx.h" // GET_X_PARAM, GET_Y_PARAM
+#include "defines.h"
 
 // NOTE(lmk): __cdecl is microsoft-specific
 
@@ -12,16 +13,19 @@ LRESULT CALLBACK win32_window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 static int win32_set_pixel_format(HDC hdc);
 static void win32_debug_enumerate_pixel_formats(HDC hdc);
 static FILETIME win32_get_file_time(char *file_name);
-
-#define WINMSG_MAX_PROCESSING_DURATION 7 // milliseconds.. arbitrarily chosen
+internal u32 win32_repack_key_state(WPARAM wParam);
 
 #ifdef DEBUG
 #define win32_assert(expression) if(!(expression)) {*(int *)0 = 0; }
 #define TIMED_BLOCK High_Resolution_Timer(__FUNCTION__)
+#define log(msg) OutputDebugStringA(msg)
 #else
 #define win32_assert(expression)
 #define TIMED_BLOCK
+#define log(msg)
 #endif
+
+#include "input.h"
 
 class High_Resolution_Timer {
     public:
