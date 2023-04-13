@@ -1,6 +1,4 @@
-#include "defines.h"
-#include "platform.h"
-#include "app.h"
+#include "shared.h"
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow) {
     char *window_class_name = "graphics api test";
@@ -28,20 +26,17 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     ShowWindow(hwnd, nCmdShow);
     
 #ifdef DEBUG
-    BOOL dll_copy_result = CopyFile("app.dll", "app.copy.dll", false);
-    assert(dll_copy_result);
-    HINSTANCE dll_handle = LoadLibrary("app.copy.dll");
-    FILETIME current_dll_write_time = win32_get_file_time("app.copy.dll");
-#else
-    HINSTANCE dll_handle = LoadLibrary("app.dll");
+    AllocConsole();
 #endif
     
-    Update_And_Render_Ptr update_and_render = (Update_And_Render_Ptr)GetProcAddress(dll_handle, "update_and_render");
+    HINSTANCE dll_handle;
+    Update_And_Render_Ptr update_and_render;
+    load_app_dll(&dll_handle, &update_and_render);
     
-    Application_Memory memory = {};
-    assert(sizeof(Application_State) < APP_MEMORY_SIZE);
-    memory.size = APP_MEMORY_SIZE;
-    memory.base_address = VirtualAlloc(0, APP_MEMORY_SIZE, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    // TODO(lmk): Allocate at defined location in memory for debugging
+    Memory_Arena app_memory = {};
+    app_memory.size = APP_MEMORY_SIZE;
+    app_memory.base_address = VirtualAlloc(0, APP_MEMORY_SIZE, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     
     global_input_state = {};
     
@@ -51,20 +46,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
         TranslateMessage(&msg);
         DispatchMessage(&msg);
         
-#ifdef DEBUG // Hot reload
-        FILETIME last_dll_write_time = win32_get_file_time("app.dll");
-        if(CompareFileTime(&current_dll_write_time, &last_dll_write_time) == -1) {
-            FreeLibrary(dll_handle);
-            dll_copy_result = CopyFile("app.dll", "app.copy.dll", false);
-            assert(dll_copy_result);
-            
-            dll_handle = LoadLibrary("app.copy.dll");
-            update_and_render = (Update_And_Render_Ptr)GetProcAddress(dll_handle, "update_and_render");
-            current_dll_write_time = last_dll_write_time;
-        }
-#endif
-        
-        update_and_render(&memory, &global_input_state);
+        hot_reload_app_dll(&dll_handle, &update_and_render);
+        update_and_render(&app_memory, &global_input_state);
         
         hdc = GetDC(hwnd);
         SwapBuffers(hdc);
@@ -91,7 +74,7 @@ LRESULT CALLBACK win32_window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
             win32_set_pixel_format(hdc);
             
             HGLRC hglrc = wglCreateContext(hdc);
-            win32_assert(hglrc);
+            assert(hglrc);
             
             wglMakeCurrent(hdc, hglrc);
         } break;
@@ -223,7 +206,7 @@ internal int win32_set_pixel_format(HDC hdc) {
     int pixel_format = ChoosePixelFormat(hdc, &pixel_struct);
     SetPixelFormat(hdc, pixel_format, &pixel_struct);
     
-#ifdef DEBUG
+#if 0
     DescribePixelFormat(hdc, pixel_format, sizeof(PIXELFORMATDESCRIPTOR), &pixel_struct);
     
     win32_debug_enumerate_pixel_formats(hdc);
@@ -257,7 +240,7 @@ internal void win32_debug_enumerate_pixel_formats(HDC hdc) {
     while (++iPixelFormat <= iMax);
 }
 
-internal FILETIME win32_get_file_time(char *file_name) {
+internal __FILETIME win32_get_file_time(char *file_name) {
     HANDLE file_handle = CreateFileA(file_name,
                                      GENERIC_READ,
                                      0,
@@ -266,10 +249,10 @@ internal FILETIME win32_get_file_time(char *file_name) {
                                      FILE_ATTRIBUTE_NORMAL,
                                      0);
     
-    FILETIME result = {};
+    __FILETIME result = {};
     
     if(file_handle != INVALID_HANDLE_VALUE) {
-        BOOL file_time_status = GetFileTime(file_handle, 0, 0, &result);
+        BOOL file_time_status = GetFileTime(file_handle, &result.create, &result.access, &result.write);
         assert(file_time_status);
         CloseHandle(file_handle);
     }
@@ -295,16 +278,32 @@ internal u32 win32_repack_key_state(WPARAM wParam) {
     return result;
 }
 
-__declspec(dllexport) u8 *win32_read_entire_file(char *file_name, Arena *memory_arena, u32 *bytes_read) {
-    HANDLE file_handle = CreateFileA(file_name, GENERIC_READ, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
-    assert(file_handle != INVALID_HANDLE_VALUE);
+internal void win32_hot_reload(HINSTANCE *loaded_dll_handle, Update_And_Render_Ptr *proc_address) {
+    __FILETIME loaded_dll_file_time = win32_get_file_time(APP_DLL_NAME_COPY);
+    __FILETIME base_dll_file_time = win32_get_file_time(APP_DLL_NAME);
     
-    u32 file_size = GetFileSize(file_handle, 0);
-    u8 *file_buffer = allocate(memory_arena, file_size);
+    if(CompareFileTime(&base_dll_file_time.write, &loaded_dll_file_time.access) == -1) {
+        FreeLibrary(*loaded_dll_handle);
+        BOOL dll_copy_result = CopyFile("app.dll", "app.copy.dll", false);
+        assert(dll_copy_result);
+        
+        *loaded_dll_handle = LoadLibrary("app.copy.dll");
+        *proc_address = (Update_And_Render_Ptr)GetProcAddress(*loaded_dll_handle, "update_and_render");
+    }
+}
+
+internal bool win32_load_app_dll(char *dll_name, HINSTANCE *dll_handle_out, Update_And_Render_Ptr *proc_address) {
+    HINSTANCE dll_handle = LoadLibrary(dll_name);
+    assert(dll_handle != INVALID_HANDLE_VALUE); // NOTE(lmk): Could not load dll
     
-    DWORD b;
-    BOOL read_status = ReadFile(file_handle, file_buffer, file_size, &b, 0);
-    assert(read_status);
+    if(dll_handle) {
+        *dll_handle_out = dll_handle;
+        FARPROC proc = GetProcAddress(dll_handle, "update_and_render");
+        assert(proc); // NOTE(lmk): Could not find proc address
+        
+        *proc_address = (Update_And_Render_Ptr)proc;
+        return true;
+    }
     
-    return file_buffer;
+    return false;
 }
