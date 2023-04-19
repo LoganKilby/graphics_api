@@ -46,7 +46,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
         TranslateMessage(&msg);
         DispatchMessage(&msg);
         
-        hot_reload_app_dll(&dll_handle, &update_and_render);
+        debug_hot_reload_app_dll(&dll_handle, &update_and_render);
         update_and_render(&app_memory, &global_input_state);
         
         hdc = GetDC(hwnd);
@@ -284,10 +284,10 @@ internal void win32_hot_reload(HINSTANCE *loaded_dll_handle, Update_And_Render_P
     
     if(CompareFileTime(&base_dll_file_time.write, &loaded_dll_file_time.access) == -1) {
         FreeLibrary(*loaded_dll_handle);
-        BOOL dll_copy_result = CopyFile("app.dll", "app.copy.dll", false);
+        BOOL dll_copy_result = CopyFile(APP_DLL_NAME, APP_DLL_NAME_COPY, false);
         assert(dll_copy_result);
         
-        *loaded_dll_handle = LoadLibrary("app.copy.dll");
+        *loaded_dll_handle = LoadLibrary(APP_DLL_NAME_COPY);
         *proc_address = (Update_And_Render_Ptr)GetProcAddress(*loaded_dll_handle, "update_and_render");
     }
 }

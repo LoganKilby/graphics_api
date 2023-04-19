@@ -9,9 +9,8 @@
 
 #define APP_MEMORY_SIZE kilobytes(16)
 
-typedef void (__cdecl *Update_And_Render_Ptr)(Memory_Arena *, Input_State *);
-
 #if defined(_WIN64)
+
 #define APP_DLL_NAME "app.dll"
 #define APP_DLL_NAME_COPY "app.copy.dll"
 #include "win32_platform.h"

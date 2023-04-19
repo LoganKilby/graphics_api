@@ -28,7 +28,6 @@ extern "C" __declspec(dllexport) void update_and_render(Memory_Arena *platform_m
         glBindBuffer(GL_ARRAY_BUFFER, app_state->vbo);
         glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
         
-#if 0
         u32 vs_source_length;
         GLchar* vs_source = (GLchar *)os_read_entire_file("basic.vs", &vs_source_length);
         
@@ -49,7 +48,6 @@ extern "C" __declspec(dllexport) void update_and_render(Memory_Arena *platform_m
                 glGetShaderInfoLog(vs_id, info_log_length, &bytes_read, vs_source);
             }
         }
-#endif
     }
     
     scratch_arena.allocated = 0;
