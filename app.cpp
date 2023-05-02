@@ -3,6 +3,7 @@
 #include "app.h"
 #include "vector_math.h"
 #include "GL/glew.h"
+#include "opengl_utility/shader.h"
 
 extern "C" __declspec(dllexport) void update_and_render(Memory_Arena *platform_memory, Input_State *input) {
     Application_State *app_state = (Application_State *)platform_memory->base_address;
@@ -19,7 +20,6 @@ extern "C" __declspec(dllexport) void update_and_render(Memory_Arena *platform_m
             0.0f,  0.5f, 0.0f
         };
         
-        
         GLenum glew_status = glewInit();
         assert(glew_status == GLEW_OK);
         
@@ -28,26 +28,10 @@ extern "C" __declspec(dllexport) void update_and_render(Memory_Arena *platform_m
         glBindBuffer(GL_ARRAY_BUFFER, app_state->vbo);
         glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
         
-        u32 vs_source_length;
-        GLchar* vs_source = (GLchar *)os_read_entire_file("basic.vs", &vs_source_length);
-        
-        u32 vs_id = glCreateShader(GL_VERTEX_SHADER);
-        glShaderSource(vs_id, 1, &vs_source, 0);
-        glCompileShader(vs_id);
-        
-        s32 vs_compile_status = 0;
-        glGetShaderiv(vs_id, GL_COMPILE_STATUS, &vs_compile_status);
-        
-        if(vs_compile_status == GL_FALSE) {
-            s32 info_log_length = 0;
-            glGetShaderiv(vs_compile_status, GL_INFO_LOG_LENGTH, &info_log_length);
-            
-            if(info_log_length > 0) {
-                u8 *info_log = scratch_allocate(info_log_length);
-                GLsizei bytes_read;
-                glGetShaderInfoLog(vs_id, info_log_length, &bytes_read, vs_source);
-            }
-        }
+        u32 source_length;
+        GLchar* vs_source = (GLchar *)os_read_entire_file(shader_path("basic.vs"), &source_length);
+        GLint vs_id = compile_shader(vs_source, source_length, GL_VERTEX_SHADER);
+        printf("%d\n", vs_id);
     }
     
     scratch_arena.allocated = 0;

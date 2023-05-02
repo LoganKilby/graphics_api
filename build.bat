@@ -9,8 +9,5 @@ set code=%cd%
 
 pushd build
 cl /LDd %debug_opts% %code%\app.cpp /link %libs% glew32.lib
-cl %debug_opts% %code%\win32_main.cpp -Fetest /link %libs% app.exp app.lib
+cl %debug_opts% %code%\win32_main.cpp -Feplatform /link %libs% app.exp app.lib
 popd
-
-
-

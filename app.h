@@ -5,6 +5,14 @@
 
 #include "arena.h"
 
+#ifdef DEBUG
+#define SHADER_SOURCE_DIR "../shaders/"
+#else
+#define SHADER_SOURCE_DIR 
+#endif
+
+#define shader_path(name) SHADER_SOURCE_DIR##name
+
 struct Application_State {
     bool initialized;
     u32 vbo;

@@ -64,20 +64,29 @@ High_Resolution_Timer::~High_Resolution_Timer() {
 }
 
 
-u8 *win32_read_entire_file(char *file_name, u32 *bytes_read) {
+u8 *win32_read_entire_file(char *file_name, u32 *bytes_read_out) {
     HANDLE file_handle = CreateFileA(file_name, GENERIC_READ, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+    
+    u8 *result = 0;
+    
     assert(file_handle != INVALID_HANDLE_VALUE); // NOTE(lmk): Failed to open file
+    if(file_handle != INVALID_HANDLE_VALUE) {
+        
+        // TODO(lmk): I'm not sure yet what allocation method to use for reading files.
+        // Should the os use the memory allocated to the application instead of the heap?
+        u32 file_size = GetFileSize(file_handle, 0);
+        result = (u8 *)malloc(file_size);
+        
+        DWORD bytes_read = 0;
+        BOOL read_status = ReadFile(file_handle, result, file_size, &bytes_read, 0);
+        assert(read_status);
+        assert(bytes_read == file_size);
+        *bytes_read_out = bytes_read;
+    } else {
+        *bytes_read_out = 0;
+    }
     
-    // TODO(lmk): I'm not sure yet what allocation method to use for reading files.
-    // Should the os use the memory allocated to the application instead of the heap?
-    u32 file_size = GetFileSize(file_handle, 0);
-    u8 *file_buffer = (u8 *)malloc(file_size);
-    
-    DWORD b;
-    BOOL read_status = ReadFile(file_handle, file_buffer, file_size, &b, 0);
-    assert(read_status);
-    
-    return file_buffer;
+    return result;
 }
 
 
