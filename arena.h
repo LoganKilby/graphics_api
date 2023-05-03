@@ -3,7 +3,7 @@
 #ifndef ARENA_H
 #define ARENA_H
 
-#include "string.h"
+#include "string.h" // memset
 
 struct Memory_Arena {
     void *base_address;
@@ -20,10 +20,10 @@ Memory_Arena create_arena_local(void *memory, u64 size) {
     return result;
 }
 
-global Memory_Arena scratch_arena;
+global Memory_Arena scratch_arena = {};
 
 // NOTE(lmk): Allocates if enough memory, no bookkeeping
-u8 *scratch_allocate(u64 size) {
+void *scratch_allocate(u64 size) {
     u8 *result = 0;
     
     if(size < (scratch_arena.size - scratch_arena.allocated)) {

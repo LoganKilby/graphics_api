@@ -26,6 +26,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     ShowWindow(hwnd, nCmdShow);
     
 #ifdef DEBUG
+    assert(CopyFile(APP_DLL_NAME, APP_DLL_NAME_COPY, false));
     AllocConsole();
 #endif
     
@@ -77,6 +78,9 @@ LRESULT CALLBACK win32_window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
             assert(hglrc);
             
             wglMakeCurrent(hdc, hglrc);
+            
+            GLenum glew_status = glewInit();
+            assert(glew_status == GLEW_OK);
         } break;
         
         case WM_MOUSEWHEEL: {
@@ -279,10 +283,10 @@ internal u32 win32_repack_key_state(WPARAM wParam) {
 }
 
 internal void win32_hot_reload(HINSTANCE *loaded_dll_handle, Update_And_Render_Ptr *proc_address) {
-    __FILETIME loaded_dll_file_time = win32_get_file_time(APP_DLL_NAME_COPY);
+    __FILETIME copy_dll_file_time = win32_get_file_time(APP_DLL_NAME_COPY);
     __FILETIME base_dll_file_time = win32_get_file_time(APP_DLL_NAME);
     
-    if(CompareFileTime(&base_dll_file_time.write, &loaded_dll_file_time.access) == -1) {
+    if(CompareFileTime(&base_dll_file_time.write, &copy_dll_file_time.write) == 1) {
         FreeLibrary(*loaded_dll_handle);
         BOOL dll_copy_result = CopyFile(APP_DLL_NAME, APP_DLL_NAME_COPY, false);
         assert(dll_copy_result);
@@ -296,7 +300,7 @@ internal bool win32_load_app_dll(char *dll_name, HINSTANCE *dll_handle_out, Upda
     HINSTANCE dll_handle = LoadLibrary(dll_name);
     assert(dll_handle != INVALID_HANDLE_VALUE); // NOTE(lmk): Could not load dll
     
-    if(dll_handle) {
+    if(dll_handle != INVALID_HANDLE_VALUE) {
         *dll_handle_out = dll_handle;
         FARPROC proc = GetProcAddress(dll_handle, "update_and_render");
         assert(proc); // NOTE(lmk): Could not find proc address

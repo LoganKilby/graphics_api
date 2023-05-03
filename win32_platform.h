@@ -75,13 +75,15 @@ u8 *win32_read_entire_file(char *file_name, u32 *bytes_read_out) {
         // TODO(lmk): I'm not sure yet what allocation method to use for reading files.
         // Should the os use the memory allocated to the application instead of the heap?
         u32 file_size = GetFileSize(file_handle, 0);
-        result = (u8 *)malloc(file_size);
+        result = (u8 *)SCRATCH_ALLOCATOR(file_size);
         
         DWORD bytes_read = 0;
         BOOL read_status = ReadFile(file_handle, result, file_size, &bytes_read, 0);
         assert(read_status);
         assert(bytes_read == file_size);
         *bytes_read_out = bytes_read;
+        
+        CloseHandle(file_handle);
     } else {
         *bytes_read_out = 0;
     }
