@@ -24,6 +24,7 @@ global Memory_Arena scratch_arena = {};
 
 // NOTE(lmk): Allocates if enough memory, no bookkeeping
 void *scratch_allocate(u64 size) {
+    assert(scratch_arena.base_address);
     u8 *result = 0;
     
     if(size < (scratch_arena.size - scratch_arena.allocated)) {

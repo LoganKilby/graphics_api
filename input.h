@@ -3,8 +3,6 @@
 #ifndef INPUT_H
 #define INPUT_H
 
-#include "vector_math.h"
-
 enum Input_Device {
     Keyboard,
     Mouse,
@@ -29,12 +27,17 @@ enum Input_Button {
 #define SysMod_Shift 2
 #define SysMod_Alt 4
 
+struct Point {
+    int x;
+    int y;
+};
+
 struct Input_Event {
     Input_Device device;
     Input_Gesture gesture;
     Input_Button button;
     u32 sys_modifiers;
-    iv2 screen_position;
+    Point screen_position;
 };
 
 #define MAX_BUFFERED_INPUT_EVENTS 15
@@ -45,7 +48,7 @@ struct Input_Event_List {
 
 struct Input_State {
     Input_Event_List event_list;
-    iv2 mouse_position; // screen coordinates
+    Point current_mouse_position;
 } global global_input_state;
 
 internal bool push_input_event(Input_Event event) {
@@ -53,7 +56,10 @@ internal bool push_input_event(Input_Event event) {
         global_input_state.event_list.events[global_input_state.event_list.count++] = event;
         return false;
     } else {
-        memcpy(global_input_state.event_list.events, &global_input_state.event_list.events[1], sizeof(Input_Event) * countof(global_input_state.event_list.events) - 1);
+        // Discarding the oldest input event, then adding to the front of the queue
+        memcpy(global_input_state.event_list.events, &global_input_state.event_list.events[1], sizeof(Input_Event) * (countof(global_input_state.event_list.events) - 1));
+        global_input_state.event_list.events[0] = event;
+        assert(0); // an event was discarded...
         return true;
     }
 }

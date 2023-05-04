@@ -19,7 +19,6 @@ typedef void (__cdecl *Update_And_Render_Ptr)(Memory_Arena *, Input_State *);
 LRESULT CALLBACK win32_window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 internal int win32_set_pixel_format(HDC hdc);
 internal void win32_debug_enumerate_pixel_formats(HDC hdc);
-internal __FILETIME win32_get_file_time(char *file_name);
 internal u32 win32_repack_key_state(WPARAM wParam);
 internal bool win32_load_app_dll(char *dll_name, HINSTANCE *dll_handle_out, Update_And_Render_Ptr *proc_address);
 internal void win32_hot_reload(HINSTANCE *loaded_dll_handle, Update_And_Render_Ptr *proc_address);
@@ -89,6 +88,59 @@ u8 *win32_read_entire_file(char *file_name, u32 *bytes_read_out) {
     }
     
     return result;
+}
+
+
+internal __FILETIME win32_get_file_time(char *file_name) {
+    HANDLE file_handle = CreateFileA(file_name,
+                                     GENERIC_READ,
+                                     0,
+                                     0,
+                                     OPEN_EXISTING,
+                                     FILE_ATTRIBUTE_NORMAL,
+                                     0);
+    
+    __FILETIME result = {};
+    
+    if(file_handle != INVALID_HANDLE_VALUE) {
+        BOOL file_time_status = GetFileTime(file_handle, &result.create, &result.access, &result.write);
+        assert(file_time_status);
+        CloseHandle(file_handle);
+    }
+    
+    return result;
+}
+
+
+internal void win32_hot_reload(HINSTANCE *loaded_dll_handle, Update_And_Render_Ptr *proc_address) {
+    __FILETIME copy_dll_file_time = win32_get_file_time(APP_DLL_NAME_COPY);
+    __FILETIME base_dll_file_time = win32_get_file_time(APP_DLL_NAME);
+    
+    if(CompareFileTime(&base_dll_file_time.write, &copy_dll_file_time.write) == 1) {
+        FreeLibrary(*loaded_dll_handle);
+        BOOL dll_copy_result = CopyFile(APP_DLL_NAME, APP_DLL_NAME_COPY, false);
+        assert(dll_copy_result);
+        
+        *loaded_dll_handle = LoadLibrary(APP_DLL_NAME_COPY);
+        *proc_address = (Update_And_Render_Ptr)GetProcAddress(*loaded_dll_handle, "update_and_render");
+    }
+}
+
+
+internal bool win32_load_app_dll(char *dll_name, HINSTANCE *dll_handle_out, Update_And_Render_Ptr *proc_address) {
+    HINSTANCE dll_handle = LoadLibrary(dll_name);
+    assert(dll_handle != INVALID_HANDLE_VALUE); // NOTE(lmk): Could not load dll
+    
+    if(dll_handle != INVALID_HANDLE_VALUE) {
+        *dll_handle_out = dll_handle;
+        FARPROC proc = GetProcAddress(dll_handle, "update_and_render");
+        assert(proc); // NOTE(lmk): Could not find proc address
+        
+        *proc_address = (Update_And_Render_Ptr)proc;
+        return true;
+    }
+    
+    return false;
 }
 
 

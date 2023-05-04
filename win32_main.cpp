@@ -1,6 +1,12 @@
 #include "shared.h"
+#include "opengl_utility/debug.h"
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow) {
+#ifdef DEBUG
+    // NOTE(lmk): copying most recent dll build to the duplicate location that gets loaded at runtime
+    assert(CopyFile(APP_DLL_NAME, APP_DLL_NAME_COPY, false));
+#endif
+    
     char *window_class_name = "graphics api test";
     WNDCLASSA window_class = {};
     window_class.lpfnWndProc = win32_window_proc;
@@ -24,11 +30,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     assert(hwnd);
     
     ShowWindow(hwnd, nCmdShow);
-    
-#ifdef DEBUG
-    assert(CopyFile(APP_DLL_NAME, APP_DLL_NAME_COPY, false));
-    AllocConsole();
-#endif
     
     HINSTANCE dll_handle;
     Update_And_Render_Ptr update_and_render;
@@ -71,16 +72,63 @@ LRESULT CALLBACK win32_window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
         }
         
         case WM_CREATE: {
+#if DEBUG
+            AllocConsole();
+            freopen_s((FILE **)stdout, "CONOUT$", "w", stdout);
+            freopen_s((FILE **)stderr, "CONOUT$", "w", stderr);
+#endif
+            
             HDC hdc = GetDC(hwnd);
             win32_set_pixel_format(hdc);
             
-            HGLRC hglrc = wglCreateContext(hdc);
-            assert(hglrc);
+            HGLRC temp_context = wglCreateContext(hdc);
+            assert(temp_context);
             
-            wglMakeCurrent(hdc, hglrc);
+            wglMakeCurrent(hdc, temp_context);
             
             GLenum glew_status = glewInit();
             assert(glew_status == GLEW_OK);
+            
+            // TODO(lmk): Using the opengl debug output requires Opengl 4.3..
+            // Try request a lesser version for running release
+            if(wglewIsSupported("WGL_ARB_create_context") == 1) {
+                // For the love of god.. I can't figure out how to create a context compatible with fixed pipeline opengl
+                int attribs[] = {
+                    WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
+                    WGL_CONTEXT_MINOR_VERSION_ARB, 3,
+                    WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB,
+                    0
+                };
+                
+                HGLRC context = wglCreateContextAttribsARB(hdc, 0, attribs);
+                
+                if(context) {
+                    printf("INFO: OpenGL Context Created\n");
+                    wglMakeCurrent(0, 0);
+                    wglDeleteContext(temp_context);
+                    wglMakeCurrent(hdc, context);
+                } else {
+                    fprintf(stderr, "INFO: Custom OpenGL context failed to create: %d\n", GetLastError());
+                }
+            } else {
+                printf("INFO: WGL_ARB_create_context not supported\n");
+            }
+            
+            int context_flags;
+            glGetIntegerv(GL_CONTEXT_FLAGS, &context_flags);
+            assert(context_flags & GL_CONTEXT_FLAG_DEBUG_BIT);
+            if(context_flags & GL_CONTEXT_FLAG_DEBUG_BIT) {
+                glEnable(GL_DEBUG_OUTPUT);
+                glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+                glDebugMessageCallback(gl_debug_output, 0);
+                glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, 0, GL_TRUE);
+            }
+            
+            int gl_version_major, gl_version_minor;
+            glGetIntegerv(GL_MAJOR_VERSION, &gl_version_major);
+            glGetIntegerv(GL_MINOR_VERSION, &gl_version_minor);
+            printf("%d %d\n", gl_version_major, gl_version_minor);
+            printf("%s\n", glGetString(GL_VERSION));
         } break;
         
         case WM_MOUSEWHEEL: {
@@ -96,7 +144,7 @@ LRESULT CALLBACK win32_window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
         } break;
         
         case WM_MBUTTONUP: {
-            iv2 mouse_position = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+            Point mouse_position = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
             
             Input_Event event = {};
             event.device = Input_Device::Mouse;
@@ -108,7 +156,7 @@ LRESULT CALLBACK win32_window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
         } break;
         
         case WM_MBUTTONDOWN: {
-            iv2 mouse_position = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+            Point mouse_position = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
             
             Input_Event event = {};
             event.device = Input_Device::Mouse;
@@ -120,7 +168,7 @@ LRESULT CALLBACK win32_window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
         } break;
         
         case WM_RBUTTONDOWN: {
-            iv2 mouse_position = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+            Point mouse_position = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
             
             Input_Event event = {};
             event.device = Input_Device::Mouse;
@@ -132,7 +180,7 @@ LRESULT CALLBACK win32_window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
         } break;
         
         case WM_RBUTTONUP: {
-            iv2 mouse_position = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+            Point mouse_position = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
             
             Input_Event event = {};
             event.device = Input_Device::Mouse;
@@ -145,7 +193,7 @@ LRESULT CALLBACK win32_window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
         
         case WM_LBUTTONDOWN:
         {
-            iv2 mouse_position = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+            Point mouse_position = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
             
             Input_Event event = {};
             event.device = Input_Device::Mouse;
@@ -158,7 +206,7 @@ LRESULT CALLBACK win32_window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
         
         case WM_LBUTTONUP:
         {
-            iv2 mouse_position = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+            Point mouse_position = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
             
             Input_Event event = {};
             event.device = Input_Device::Mouse;
@@ -176,6 +224,7 @@ LRESULT CALLBACK win32_window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
     
     return result;
 }
+
 
 internal int win32_set_pixel_format(HDC hdc) {
     PIXELFORMATDESCRIPTOR pixel_struct =  {
@@ -219,6 +268,7 @@ internal int win32_set_pixel_format(HDC hdc) {
     return pixel_format;
 }
 
+
 internal void win32_debug_enumerate_pixel_formats(HDC hdc) {
     // local variables  
     int                      iMax ; 
@@ -244,26 +294,6 @@ internal void win32_debug_enumerate_pixel_formats(HDC hdc) {
     while (++iPixelFormat <= iMax);
 }
 
-internal __FILETIME win32_get_file_time(char *file_name) {
-    HANDLE file_handle = CreateFileA(file_name,
-                                     GENERIC_READ,
-                                     0,
-                                     0,
-                                     OPEN_EXISTING,
-                                     FILE_ATTRIBUTE_NORMAL,
-                                     0);
-    
-    __FILETIME result = {};
-    
-    if(file_handle != INVALID_HANDLE_VALUE) {
-        BOOL file_time_status = GetFileTime(file_handle, &result.create, &result.access, &result.write);
-        assert(file_time_status);
-        CloseHandle(file_handle);
-    }
-    
-    return result;
-}
-
 
 internal u32 win32_repack_key_state(WPARAM wParam) {
     u32 result = 0;
@@ -276,38 +306,8 @@ internal u32 win32_repack_key_state(WPARAM wParam) {
     if(win32_key_state & MK_SHIFT)
         result |= SysMod_Shift;
     
-    if(GetKeyState(VK_MENU)< 0)
+    if(GetKeyState(VK_MENU) < 0)
         result |= SysMod_Alt;
     
     return result;
-}
-
-internal void win32_hot_reload(HINSTANCE *loaded_dll_handle, Update_And_Render_Ptr *proc_address) {
-    __FILETIME copy_dll_file_time = win32_get_file_time(APP_DLL_NAME_COPY);
-    __FILETIME base_dll_file_time = win32_get_file_time(APP_DLL_NAME);
-    
-    if(CompareFileTime(&base_dll_file_time.write, &copy_dll_file_time.write) == 1) {
-        FreeLibrary(*loaded_dll_handle);
-        BOOL dll_copy_result = CopyFile(APP_DLL_NAME, APP_DLL_NAME_COPY, false);
-        assert(dll_copy_result);
-        
-        *loaded_dll_handle = LoadLibrary(APP_DLL_NAME_COPY);
-        *proc_address = (Update_And_Render_Ptr)GetProcAddress(*loaded_dll_handle, "update_and_render");
-    }
-}
-
-internal bool win32_load_app_dll(char *dll_name, HINSTANCE *dll_handle_out, Update_And_Render_Ptr *proc_address) {
-    HINSTANCE dll_handle = LoadLibrary(dll_name);
-    assert(dll_handle != INVALID_HANDLE_VALUE); // NOTE(lmk): Could not load dll
-    
-    if(dll_handle != INVALID_HANDLE_VALUE) {
-        *dll_handle_out = dll_handle;
-        FARPROC proc = GetProcAddress(dll_handle, "update_and_render");
-        assert(proc); // NOTE(lmk): Could not find proc address
-        
-        *proc_address = (Update_And_Render_Ptr)proc;
-        return true;
-    }
-    
-    return false;
 }

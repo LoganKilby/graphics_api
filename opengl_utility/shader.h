@@ -3,6 +3,9 @@
 #ifndef SHADER_H
 #define SHADER_H
 
+// NOTE(lmk): GLSL reference compiler uses the extensions .vert, .frag, .geom, .tesc, .tese, .comp
+// It was claimed that this compiler 
+
 #define INFO_LOG_LENGTH 1024
 
 static GLint compile_shader(char *source, GLint source_length, GLenum type) {
