@@ -3,6 +3,7 @@
 #ifndef SHARED_H
 #define SHARED_H
 
+#include "D:\Library\glm\glm\glm.hpp"
 #include "defines.h"
 #include "arena.h"
 #include "input.h"
@@ -17,6 +18,8 @@
 #include "win32_platform.h"
 #include "GL/glew.h"
 #include "GL/wglew.h"
+#include "opengl_utility/core.h"
+#include "opengl_utility/debug.h"
 #define os_read_entire_file(file_name, bytes_read) win32_read_entire_file(file_name, bytes_read)
 
 #ifdef DEBUG

@@ -3,6 +3,8 @@
 #ifndef DEBUG_H
 #define DEBUG_H
 
+#include "stdio.h"
+
 void APIENTRY gl_debug_output(GLenum source, 
                               GLenum type, 
                               unsigned int id, 

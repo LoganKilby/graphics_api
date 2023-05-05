@@ -5,6 +5,10 @@
 
 #include "stdint.h"
 
+#ifdef assert
+#undef assert
+#endif
+
 #ifdef DEBUG
 #define assert(expression) if(!(expression)) { *(int *)0 = 0; }
 #else
@@ -29,7 +33,6 @@ typedef int8_t s8;
 #define kilobytes(kibs) kibs * 1024
 #define megabytes(megs) megs * kilobytes(1024)
 #define gigabytes(gigs) gigs * megabytes(1024)
-
 #define countof(array) (sizeof(array) / sizeof(array[0]))
 
 #endif //DEFINES_H

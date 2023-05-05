@@ -1,5 +1,4 @@
 #include "shared.h"
-#include "opengl_utility/debug.h"
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow) {
 #ifdef DEBUG
@@ -129,6 +128,12 @@ LRESULT CALLBACK win32_window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
             glGetIntegerv(GL_MINOR_VERSION, &gl_version_minor);
             printf("%d %d\n", gl_version_major, gl_version_minor);
             printf("%s\n", glGetString(GL_VERSION));
+            
+            // TODO(lmk): I'm not sure where to put this in terms of code organization.
+            // I'm putting it here because if we're hot reloading the dll that calls opengl stuff,
+            // I'd rather not have to manage de-initializing and then reinitializing vertex
+            // buffer objects and so on when that reload happens.
+            gl_utility_init();
         } break;
         
         case WM_MOUSEWHEEL: {

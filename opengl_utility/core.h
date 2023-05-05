@@ -9,10 +9,15 @@ struct Shape_VBO_Context {
 
 struct GL_Utility_Context {
     Shape_VBO_Context shapes;
+    
+    GLuint static_color_program;
+    GLuint static_color_uniform_color;
+    
 } static global_gl_utility_context;
 
-#include "shader.h"
 #include "shapes.h"
+#include "shader.h"
+
 
 char *gl_get_error_string(GLenum err) {
     switch(err) {
@@ -30,10 +35,19 @@ char *gl_get_error_string(GLenum err) {
     return "\0";
 }
 
-static void gl_utility_initialize() {
+
+static void gl_utility_init() {
     global_gl_utility_context = {};
     
+    // Shapes
     glGenBuffers(sizeof(Shape_VBO_Context) / sizeof(GLuint), (GLuint *)&global_gl_utility_context.shapes);
+    
+    GL_Utility_Compiled_Shaders sh = {};
+    sh.vert = gl_utility_compile_shader(global_gl_utility_shape_vert, (GLint)strlen(global_gl_utility_shape_vert), GL_VERTEX_SHADER);
+    sh.frag = gl_utility_compile_shader(global_gl_utility_shape_frag, (GLint)strlen(global_gl_utility_shape_frag), GL_FRAGMENT_SHADER);
+    global_gl_utility_context.static_color_program = gl_utility_link_program(&sh);
+    global_gl_utility_context.static_color_uniform_color = gl_utility_get_uniform_location(global_gl_utility_context.static_color_program, "uniform_fragment_color");
 }
+
 
 #endif //CORE_H
