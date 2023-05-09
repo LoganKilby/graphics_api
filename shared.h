@@ -18,7 +18,6 @@
 #include "win32_platform.h"
 #include "GL/glew.h"
 #include "GL/wglew.h"
-#include "opengl_utility/core.h"
 #include "opengl_utility/debug.h"
 #define os_read_entire_file(file_name, bytes_read) win32_read_entire_file(file_name, bytes_read)
 

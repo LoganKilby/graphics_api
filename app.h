@@ -3,8 +3,6 @@
 #ifndef APP_H
 #define APP_H
 
-#include "arena.h"
-
 #ifdef DEBUG
 #define SHADER_SOURCE_DIR "../shaders/"
 #else
@@ -15,7 +13,9 @@
 
 struct Application_State {
     bool initialized;
-    u32 vbo;
+    
+    u32 test_vao;
+    u32 test_program;
     
     Memory_Arena scratch_arena;
 };

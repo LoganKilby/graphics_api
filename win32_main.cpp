@@ -44,10 +44,11 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     HDC hdc;
     MSG msg = {};
     while(GetMessage(&msg, 0, 0, 0)) {
+        debug_hot_reload_app_dll(&dll_handle, &update_and_render);
+        
         TranslateMessage(&msg);
         DispatchMessage(&msg);
         
-        debug_hot_reload_app_dll(&dll_handle, &update_and_render);
         update_and_render(&app_memory, &global_input_state);
         
         hdc = GetDC(hwnd);
@@ -126,14 +127,7 @@ LRESULT CALLBACK win32_window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
             int gl_version_major, gl_version_minor;
             glGetIntegerv(GL_MAJOR_VERSION, &gl_version_major);
             glGetIntegerv(GL_MINOR_VERSION, &gl_version_minor);
-            printf("%d %d\n", gl_version_major, gl_version_minor);
             printf("%s\n", glGetString(GL_VERSION));
-            
-            // TODO(lmk): I'm not sure where to put this in terms of code organization.
-            // I'm putting it here because if we're hot reloading the dll that calls opengl stuff,
-            // I'd rather not have to manage de-initializing and then reinitializing vertex
-            // buffer objects and so on when that reload happens.
-            gl_utility_init();
         } break;
         
         case WM_MOUSEWHEEL: {

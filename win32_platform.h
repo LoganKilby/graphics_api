@@ -123,6 +123,7 @@ internal void win32_hot_reload(HINSTANCE *loaded_dll_handle, Update_And_Render_P
         
         *loaded_dll_handle = LoadLibrary(APP_DLL_NAME_COPY);
         *proc_address = (Update_And_Render_Ptr)GetProcAddress(*loaded_dll_handle, "update_and_render");
+        fprintf(stderr, "INFO: Reloaded %s\n", APP_DLL_NAME_COPY);
     }
 }
 

@@ -14,18 +14,17 @@ struct GL_Utility_Compiled_Shaders {
     GLuint comp;
 };
 
-static char *global_gl_utility_shape_vert =
+static char *global_gl_shape_vert =
 #include "shaders/shape.vert"
 ;
-static char *global_gl_utility_shape_frag =
+static char *global_gl_shape_frag =
 #include "shaders/shape.frag"
 ;
-
 
 #define INFO_LOG_LENGTH 1024
 
 
-static GLuint gl_utility_compile_shader(char *source, GLint source_length, GLenum type) {
+static GLuint gl_compile_shader(char *source, GLint source_length, GLenum type) {
     GLuint result = 0;
     
     if(source) {
@@ -46,14 +45,16 @@ static GLuint gl_utility_compile_shader(char *source, GLint source_length, GLenu
 }
 
 
-static GLuint gl_utility_link_program(GL_Utility_Compiled_Shaders *compiled_shader_ids) {
+static GLuint gl_link_program(GL_Utility_Compiled_Shaders *compiled_shader_ids) {
     GLuint result = glCreateProgram();
     
     int count = (sizeof(GL_Utility_Compiled_Shaders) / sizeof(GLuint));
     GLuint *id_list = (GLuint *)compiled_shader_ids;
     
-    for(int id_index = 0; id_index < count; ++id_index)
-        glAttachShader(result, id_list[id_index]);
+    for(int id_index = 0; id_index < count; ++id_index) {
+        if(id_list[id_index])
+            glAttachShader(result, id_list[id_index]);
+    }
     
     glLinkProgram(result);
     
@@ -75,7 +76,7 @@ static GLuint gl_utility_link_program(GL_Utility_Compiled_Shaders *compiled_shad
 }
 
 
-static GLint gl_utility_get_uniform_location(GLuint program, const GLchar *name) {
+static GLint gl_get_uniform_location(GLuint program, const GLchar *name) {
     GLint result = glGetUniformLocation(program, name);
     
     if(result == -1) {
