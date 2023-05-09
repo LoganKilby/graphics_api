@@ -4,6 +4,7 @@
 #define SHARED_H
 
 #include "D:\Library\glm\glm\glm.hpp"
+#include "D:\Library\glm\glm\gtc\constants.hpp"
 #include "defines.h"
 #include "arena.h"
 #include "input.h"

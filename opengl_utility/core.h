@@ -15,7 +15,9 @@ struct GL_Utility_Context {
     GLuint static_color_program;
     GLuint static_color_uniform_color;
     
-} static global_gl_utility_context;
+};
+
+static GL_Utility_Context *gl_utility_context_ptr;
 
 #include "shapes.h"
 #include "shader.h"
@@ -38,15 +40,15 @@ char *gl_get_error_string(GLenum err) {
 }
 
 
-static void gl_utility_init() {
-    global_gl_utility_context = {};
+static void gl_utility_init(GL_Utility_Context *context) {
+    memset(context, 0, sizeof(GL_Utility_Context));
     
     // Shapes
-    glGenBuffers(sizeof(GL_Shape_Context) / sizeof(GLuint), (GLuint *)&global_gl_utility_context.shape_vbo);
-    glGenVertexArrays(sizeof(GL_Shape_Context) / sizeof(GLuint), (GLuint *)&global_gl_utility_context.shape_vao);
+    glGenBuffers(sizeof(GL_Shape_Context) / sizeof(GLuint), (GLuint *)&context->shape_vbo);
+    glGenVertexArrays(sizeof(GL_Shape_Context) / sizeof(GLuint), (GLuint *)&context->shape_vao);
     
-    glBindVertexArray(global_gl_utility_context.shape_vao.v3f);
-    glBindBuffer(GL_ARRAY_BUFFER, global_gl_utility_context.shape_vbo.v3f);
+    glBindVertexArray(context->shape_vao.v3f);
+    glBindBuffer(GL_ARRAY_BUFFER, context->shape_vbo.v3f);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
     glEnableVertexAttribArray(0);
     
@@ -58,15 +60,15 @@ static void gl_utility_init() {
     sh.vert = gl_compile_shader(global_gl_shape_vert, vert_length, GL_VERTEX_SHADER);
     GLint frag_length = (GLint)strlen(global_gl_shape_frag);
     sh.frag = gl_compile_shader(global_gl_shape_frag, frag_length, GL_FRAGMENT_SHADER);
-    global_gl_utility_context.static_color_program = gl_link_program(&sh);
-    global_gl_utility_context.static_color_uniform_color = gl_get_uniform_location(global_gl_utility_context.static_color_program, "uniform_fragment_color");
+    context->static_color_program = gl_link_program(&sh);
+    context->static_color_uniform_color = gl_get_uniform_location(context->static_color_program, "uniform_fragment_color");
     
-    global_gl_utility_context.initialized = 1;
+    context->initialized = 1;
+    gl_utility_context_ptr = context;
 }
 
-static GLuint gl_create_vao_3f3f() {
+static void gl_vertex_buffer_3f3f(GLuint *vao_out, GLuint *vbo_out) {
     GLuint vao, vbo;
-    
     glGenBuffers(1, &vbo);
     glGenVertexArrays(1, &vao);
     
@@ -76,14 +78,9 @@ static GLuint gl_create_vao_3f3f() {
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
-    glBindVertexArray(0);
     
-    return vao;
+    *vao_out = vao;
+    *vbo_out = vbo;
 }
 
-#else
-// NOTE(lmk): Since I'm using a global variable to store state about the utility, there shouldn't be separate global variables
-// defined in the same translation unit. Ideally there should only be one instance of the global variable. This error
-// only prevents multiple declarations within the same translation unit.
-#error Opengl Utility 'core.h' most only be included once.
 #endif //CORE_H

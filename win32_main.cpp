@@ -1,5 +1,7 @@
 #include "shared.h"
 
+static bool global_running;
+
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow) {
 #ifdef DEBUG
     // NOTE(lmk): copying most recent dll build to the duplicate location that gets loaded at runtime
@@ -39,17 +41,19 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     app_memory.size = APP_MEMORY_SIZE;
     app_memory.base_address = VirtualAlloc(0, APP_MEMORY_SIZE, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     
-    global_input_state = {};
+    Input_State input_state = {};
     
     HDC hdc;
     MSG msg = {};
-    while(GetMessage(&msg, 0, 0, 0)) {
+    
+    global_running = true;
+    
+    
+    while(global_running) {
         debug_hot_reload_app_dll(&dll_handle, &update_and_render);
+        win32_process_message_queue(&input_state);
         
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-        
-        update_and_render(&app_memory, &global_input_state);
+        update_and_render(&app_memory, &input_state);
         
         hdc = GetDC(hwnd);
         SwapBuffers(hdc);
@@ -58,18 +62,73 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 }
 
 
+internal void win32_process_message_queue(Input_State *input) {
+    MSG msg = {};
+    
+    for(;;) {
+        TIMED_BLOCK;
+        BOOL got_message = PeekMessage(&msg, 0, 0, 0, PM_REMOVE);
+        
+        if(!got_message) 
+            break;
+        
+        switch(msg.message) {
+            case WM_QUIT: {
+                global_running = false;
+            } break;
+            
+            case WM_SYSKEYDOWN:
+            case WM_SYSKEYUP:
+            case WM_KEYDOWN:
+            case WM_KEYUP: {
+                b32 was_down = WAS_DOWN(msg.lParam);
+                b32 is_down = IS_DOWN(msg.lParam);
+                b32 alt_key_down = (msg.lParam & (1 << 29));
+                b32 shift_key_down = (GetKeyState(VK_SHIFT) & (1 << 15));
+                u32 vk_code = (u32)msg.wParam;
+                
+                if(was_down != is_down) {
+                    // TODO(lmk): process keyboard input
+                }
+                
+                if(is_down)
+                {
+                    if((vk_code == VK_F4) && alt_key_down)
+                    {
+                        global_running = false;
+                    }
+                }
+                
+            } break;
+            
+            default: {
+                TranslateMessage(&msg);
+                DispatchMessageA(&msg);
+            } break;
+        }
+    }
+}
+
 LRESULT CALLBACK win32_window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     LRESULT result = 0;
     
     switch(uMsg) {
-        case WM_SIZE: {
-            int width = LOWORD(lParam);
-            int height = HIWORD(lParam);
+        case WM_SYSKEYDOWN:
+        case WM_SYSKEYUP:
+        case WM_KEYDOWN:
+        case WM_KEYUP: {
+            assert(0);
+        } break;
+        
+        case WM_PAINT: {
+            PAINTSTRUCT paint;
+            HDC device_context = BeginPaint(hwnd, &paint);
+            EndPaint(hwnd, &paint);
         } break;
         
         case WM_DESTROY: {
-            PostQuitMessage(0);
-        }
+            global_running = false;
+        } break;
         
         case WM_CREATE: {
 #if DEBUG
@@ -128,92 +187,6 @@ LRESULT CALLBACK win32_window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
             glGetIntegerv(GL_MAJOR_VERSION, &gl_version_major);
             glGetIntegerv(GL_MINOR_VERSION, &gl_version_minor);
             printf("%s\n", glGetString(GL_VERSION));
-        } break;
-        
-        case WM_MOUSEWHEEL: {
-            s32 scroll_delta = GET_WHEEL_DELTA_WPARAM(wParam) / WHEEL_DELTA;
-            
-            Input_Event event = {};
-            event.device = Input_Device::Mouse;
-            event.gesture = Input_Gesture::Scroll;
-            event.button = Input_Button::Mouse_MButton;
-            event.sys_modifiers = win32_repack_key_state(wParam);
-            event.screen_position.y = scroll_delta;
-            push_input_event(event);
-        } break;
-        
-        case WM_MBUTTONUP: {
-            Point mouse_position = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
-            
-            Input_Event event = {};
-            event.device = Input_Device::Mouse;
-            event.gesture = Input_Gesture::Release;
-            event.button = Input_Button::Mouse_MButton;
-            event.sys_modifiers = win32_repack_key_state(wParam);
-            event.screen_position = mouse_position;
-            push_input_event(event);
-        } break;
-        
-        case WM_MBUTTONDOWN: {
-            Point mouse_position = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
-            
-            Input_Event event = {};
-            event.device = Input_Device::Mouse;
-            event.gesture = Input_Gesture::Press;
-            event.button = Input_Button::Mouse_MButton;
-            event.sys_modifiers = win32_repack_key_state(wParam);
-            event.screen_position = mouse_position;
-            push_input_event(event);
-        } break;
-        
-        case WM_RBUTTONDOWN: {
-            Point mouse_position = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
-            
-            Input_Event event = {};
-            event.device = Input_Device::Mouse;
-            event.gesture = Input_Gesture::Press;
-            event.button = Input_Button::Mouse_RButton;
-            event.sys_modifiers = win32_repack_key_state(wParam);
-            event.screen_position = mouse_position;
-            push_input_event(event);
-        } break;
-        
-        case WM_RBUTTONUP: {
-            Point mouse_position = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
-            
-            Input_Event event = {};
-            event.device = Input_Device::Mouse;
-            event.gesture = Input_Gesture::Release;
-            event.button = Input_Button::Mouse_RButton;
-            event.sys_modifiers = win32_repack_key_state(wParam);
-            event.screen_position = mouse_position;
-            push_input_event(event);
-        } break;
-        
-        case WM_LBUTTONDOWN:
-        {
-            Point mouse_position = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
-            
-            Input_Event event = {};
-            event.device = Input_Device::Mouse;
-            event.gesture = Input_Gesture::Press;
-            event.button = Input_Button::Mouse_LButton;
-            event.sys_modifiers = win32_repack_key_state(wParam);
-            event.screen_position = mouse_position;
-            push_input_event(event);
-        } break;
-        
-        case WM_LBUTTONUP:
-        {
-            Point mouse_position = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
-            
-            Input_Event event = {};
-            event.device = Input_Device::Mouse;
-            event.gesture = Input_Gesture::Release;
-            event.button = Input_Button::Mouse_LButton;
-            event.sys_modifiers = win32_repack_key_state(wParam);
-            event.screen_position = mouse_position;
-            push_input_event(event);
         } break;
         
         default: {

@@ -1,17 +1,18 @@
 #include "shared.h"
 #include "app.h"
-#include "opengl_utility/core.h"
 
 extern "C" __declspec(dllexport) void update_and_render(Memory_Arena *platform_memory, Input_State *input) {
     Application_State *app_state = (Application_State *)platform_memory->base_address;
     assert(sizeof(Application_State) < APP_MEMORY_SIZE); // NOTE(lmk): Increase app memory size
     
+    gl_utility_context_ptr = &app_state->gl_utility_context;
+    
     if(!app_state->initialized) {
         scratch_arena = create_arena_local((u8 *)platform_memory->base_address + sizeof(Application_State), APP_MEMORY_SIZE - sizeof(Application_State));
         
-        gl_utility_init();
+        gl_utility_init(&app_state->gl_utility_context);
         
-        app_state->test_vao = gl_create_vao_3f3f();
+        gl_vertex_buffer_3f3f(&app_state->test_vao, &app_state->test_vbo);
         
         GL_Utility_Compiled_Shaders sh = {};
         
@@ -32,29 +33,5 @@ extern "C" __declspec(dllexport) void update_and_render(Memory_Arena *platform_m
     scratch_arena.allocated = 0;
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     
-    //gl_draw_triangle(v3(0, 0, 0), v3(1, 1, 0), v3(1, 0, 0), v4(1, 0, 0, 1));
     
-    
-    float vertices[] = {
-        // positions         // colors
-        0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,   // bottom right
-        -0.5f, -0.5f, 0.0f,  1.0f, 1.0f, 0.0f,   // bottom left
-        0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f    // top 
-    };
-    
-    glBindVertexArray(app_state->test_vao);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
-    glUseProgram(app_state->test_program);
-    glDrawArrays(GL_TRIANGLES, 0, countof(vertices));
-    glBindVertexArray(0);
-    
-#if 0
-    v3 polygon_vertices[] = {
-        v3(0.5f, -0.5f, 0.0f),  
-        v3(-0.5f, -0.5f, 0.0f), 
-        v3(0.0f,  0.5f, 0.0f),
-    };
-    
-    gl_draw_polygon(polygon_vertices, countof(polygon_vertices), v4(1, 0, 0, 1));
-#endif
 }

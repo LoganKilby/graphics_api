@@ -21,6 +21,7 @@ enum Input_Button {
     Mouse_MButton,
     Mouse_XButton1,
     Mouse_XButton2,
+    
 };
 
 #define SysMod_Ctrl 1
@@ -49,16 +50,16 @@ struct Input_Event_List {
 struct Input_State {
     Input_Event_List event_list;
     Point current_mouse_position;
-} global global_input_state;
+};
 
-internal bool push_input_event(Input_Event event) {
-    if(global_input_state.event_list.count < countof(global_input_state.event_list.events)) {
-        global_input_state.event_list.events[global_input_state.event_list.count++] = event;
+internal bool push_input_event(Input_State *state, Input_Event event) {
+    if(state->event_list.count < countof(state->event_list.events)) {
+        state->event_list.events[state->event_list.count++] = event;
         return false;
     } else {
         // Discarding the oldest input event, then adding to the front of the queue
-        memcpy(global_input_state.event_list.events, &global_input_state.event_list.events[1], sizeof(Input_Event) * (countof(global_input_state.event_list.events) - 1));
-        global_input_state.event_list.events[0] = event;
+        memcpy(state->event_list.events, &state->event_list.events[1], sizeof(Input_Event) * (countof(state->event_list.events) - 1));
+        state->event_list.events[0] = event;
         assert(0); // an event was discarded...
         return true;
     }

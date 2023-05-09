@@ -22,6 +22,7 @@ internal void win32_debug_enumerate_pixel_formats(HDC hdc);
 internal u32 win32_repack_key_state(WPARAM wParam);
 internal bool win32_load_app_dll(char *dll_name, HINSTANCE *dll_handle_out, Update_And_Render_Ptr *proc_address);
 internal void win32_hot_reload(HINSTANCE *loaded_dll_handle, Update_And_Render_Ptr *proc_address);
+internal void win32_process_message_queue(Input_State *state);
 
 #ifdef DEBUG
 #define TIMED_BLOCK High_Resolution_Timer(__FUNCTION__)
@@ -35,6 +36,8 @@ internal void win32_hot_reload(HINSTANCE *loaded_dll_handle, Update_And_Render_P
 #define debug_hot_reload_app_dll(dll_out, proc_address_out)
 #endif
 
+#define WAS_DOWN(lParam) ((lParam & (1 << 30)) != 0)
+#define IS_DOWN(lParam) ((lParam & (1UL << 31)) == 0)
 
 class High_Resolution_Timer {
     public:
