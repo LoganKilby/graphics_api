@@ -8,7 +8,7 @@
 
 struct GL_Texture2D {
     GLuint id;
-    int widht;
+    int width;
     int height;
 };
 
@@ -24,6 +24,9 @@ GL_Texture2D gl_texture_2d(GL_Image *image) {
     GL_Texture2D result = {};
     
     if(image->data) {
+        result.width = image->width;
+        result.height = image->height;
+        
         glGenTextures(1, &result.id);
         glBindTexture(GL_TEXTURE_2D, result.id);
         

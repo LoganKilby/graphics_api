@@ -25,7 +25,7 @@ extern "C" __declspec(dllexport) void update_and_render(Memory_Arena *platform_m
         
         app_state->test_program = gl_link_program(&sh);
         
-        glClearColor(0, 1, 0, 0);
+        glClearColor(0.2, 0.2, 0.2, 0);
         
         gl_vertex_buffer_3f2f(&app_state->v3f2f);
         
@@ -39,10 +39,10 @@ extern "C" __declspec(dllexport) void update_and_render(Memory_Arena *platform_m
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     
     GL_Rect r = {
-        v3(0.5, 0.5, 0.0),
-        v3(0.5, -0.5, 0.0),
-        v3(-0.5, -0.5, 0.0),
-        v3(-0.5, 0.5, 0.0)
+        v3(0.25, 0.5, 0.0),
+        v3(0.25, -0.5, 0.0),
+        v3(-0.25, -0.5, 0.0),
+        v3(-0.25, 0.5, 0.0)
     };
     
     gl_texture_rect(r, app_state->alexstrasza);
