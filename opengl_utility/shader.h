@@ -20,8 +20,14 @@ static char *global_gl_shape_vert =
 static char *global_gl_shape_frag =
 #include "shaders/shape.frag"
 ;
+static char *global_gl_texture_vert = 
+#include "shaders/texture.vert"
+;
+static char *global_gl_texture_frag =
+#include "shaders/texture.frag"
+;
 
-#define INFO_LOG_LENGTH 1024
+#define MAX_INFO_LOG_LENGTH 1024
 
 
 static GLuint gl_compile_shader(char *source, GLint source_length, GLenum type) {
@@ -35,8 +41,11 @@ static GLuint gl_compile_shader(char *source, GLint source_length, GLenum type) 
         GLint compile_status;
         glGetShaderiv(result, GL_COMPILE_STATUS, &compile_status);
         if(compile_status == GL_FALSE) {
-            char info_log[INFO_LOG_LENGTH] = {};
-            glGetShaderInfoLog(result, sizeof(info_log), 0, source);
+            char info_log[MAX_INFO_LOG_LENGTH] = {};
+            int length;
+            glGetShaderiv(result, GL_INFO_LOG_LENGTH, &length);
+            assert(length < MAX_INFO_LOG_LENGTH);
+            glGetShaderInfoLog(result, sizeof(info_log), 0, info_log);
             fprintf(stderr, "%s\n", info_log);
         }
     }
@@ -61,8 +70,11 @@ static GLuint gl_link_program(GL_Utility_Compiled_Shaders *compiled_shader_ids) 
     GLint link_status;
     glGetProgramiv(result, GL_LINK_STATUS, &link_status);
     if(link_status == 0) {
-        char info_log[INFO_LOG_LENGTH] = {};
-        glGetProgramInfoLog(result, INFO_LOG_LENGTH, NULL, info_log);
+        char info_log[MAX_INFO_LOG_LENGTH] = {};
+        int length;
+        glGetShaderiv(result, GL_INFO_LOG_LENGTH, &length);
+        assert(length < MAX_INFO_LOG_LENGTH);
+        glGetProgramInfoLog(result, MAX_INFO_LOG_LENGTH, NULL, info_log);
         fprintf(stderr, "%s\n", info_log);
     }
     

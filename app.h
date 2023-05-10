@@ -22,6 +22,9 @@ struct Application_State {
     u32 test_vbo;
     u32 test_program;
     
+    GL_Vertex_Buffer v3f2f;
+    GL_Texture2D alexstrasza;
+    
     Memory_Arena scratch_arena;
 };
 
