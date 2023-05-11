@@ -1,5 +1,5 @@
 #include "shared.h"
-#include "D:/Library/glfw-3.3.8/include/GLFW/glfw3.h"
+
 
 // TODO(lmk): Having trouble setting up an opengl context for fixed pipeline opengl on my hardware...
 

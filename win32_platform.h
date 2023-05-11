@@ -6,6 +6,9 @@
 #include "Windows.h"
 #include "Windowsx.h" // GET_X_PARAM, GET_Y_PARAM
 
+// TODO(lmk): How should I opt in/out of using glfw?
+
+
 // NOTE(lmk): __cdecl is microsoft-specific
 
 struct __FILETIME {

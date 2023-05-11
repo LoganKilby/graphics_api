@@ -19,6 +19,7 @@
 #include "GL/glew.h"
 #include "GL/wglew.h"
 #include "opengl_utility/debug.h"
+#include "D:/Library/glfw-3.3.8/include/GLFW/glfw3.h"
 #define os_read_entire_file(file_name, bytes_read) win32_read_entire_file(file_name, bytes_read)
 
 #elif defined(__APPLE__)
