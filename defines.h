@@ -9,12 +9,6 @@
 #undef assert
 #endif
 
-#ifdef DEBUG
-#define assert(expression) if(!(expression)) { *(int *)0 = 0; }
-#else
-#define assert(expression)
-#endif
-
 #define internal static
 #define global static
 #define local static

@@ -3,15 +3,7 @@
 #ifndef SHAPES_H
 #define SHAPES_H
 
-#ifndef GLM_VERSION
 #include "vector_math.h"
-#else
-typedef glm::vec2 v2;
-typedef glm::vec3 v3;
-typedef glm::vec4 v4;
-#define M_PI glm::pi<float>()
-#endif
-
 
 struct v5 {
     float x;
@@ -32,10 +24,17 @@ struct GL_Quad {
 };
 
 struct GL_Rect {
-    v3 tr; // top-right
-    v3 br; // bottom-right
-    v3 bl; // bottom-left
-    v3 tl; // top-left
+    v2 tr; // top-right
+    v2 br; // bottom-right
+    v2 bl; // bottom-left
+    v2 tl; // top-left
+};
+
+static GL_Rect gl_rect_texture_coords = {
+    {1, 1},
+    {1, 0},
+    {0, 0},
+    {0, 1},
 };
 
 
@@ -100,7 +99,6 @@ void gl_circle(float radius, int vertex_count) {
 
 
 void gl_texture_rect(GL_Rect r, GL_Texture2D texture) {
-    
     v5 vertex_buffer[4] = {
         {r.tr.x, r.tr.y, 0, 1, 1},
         {r.br.x, r.br.y, 0, 1, 0},

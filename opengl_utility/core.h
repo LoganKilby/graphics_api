@@ -42,7 +42,8 @@ struct GL_Utility_Context {
     GLuint texture_program;
     GLuint texture_program_uniform;
     
-    GL_Texture2D brick_wall;
+    GL_Texture2D wall;
+    GL_Texture2D awesome_face;
 };
 
 
@@ -51,6 +52,14 @@ static GL_Utility_Context *gl_utility_context_ptr;
 
 #include "shapes.h"
 #include "shader.h"
+
+
+static void gl_get_viewport_dimensions(int *width, int *height) {
+    GLint dim[4];
+    glGetIntegerv(GL_VIEWPORT, dim);
+    *width = dim[2];
+    *height = dim[3];
+}
 
 
 char *gl_get_error_string(GLenum err) {
@@ -100,7 +109,8 @@ static void gl_utility_init(GL_Utility_Context *context) {
     sh.frag = gl_compile_shader(global_gl_texture_frag, frag_length, GL_FRAGMENT_SHADER);
     context->texture_program = gl_link_program(&sh);
     
-    //context->brick_wall = gl_texture_2d("textures/wall.jpg");
+    context->awesome_face = gl_texture_2d("../opengl_utility/textures/awesomeface.png");
+    context->wall = gl_texture_2d("../opengl_utility/textures/wall.jpg");
     
     context->initialized = 1;
     gl_utility_context_ptr = context;

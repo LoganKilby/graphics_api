@@ -6,6 +6,32 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb\stb_image.h"
 
+char *image_file_ext[] = {
+    "jpg",
+    "png",
+    "bmp",
+    "psd",
+    "tga",
+    "gif",
+    "hdr",
+    "pic",
+    "pnm"
+};
+
+enum GL_Image_Extension {
+    JPEG,
+    PNG,
+    BMP,
+    PSD,
+    TGA,
+    GIF,
+    HDR,
+    PIC,
+    PNM,
+    EXTENSION_COUNT,
+    INVALID_EXTENSION
+};
+
 struct GL_Texture2D {
     GLuint id;
     int width;
@@ -14,11 +40,18 @@ struct GL_Texture2D {
 
 
 struct GL_Image {
+    GL_Image_Extension type;
     unsigned char *data;
     int width;
     int height;
     int channels;
 };
+
+
+struct GL_File_Extension_String {
+    char ext[4];
+};
+
 
 GL_Texture2D gl_texture_2d(GL_Image *image) {
     GL_Texture2D result = {};
@@ -35,7 +68,20 @@ GL_Texture2D gl_texture_2d(GL_Image *image) {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image->width, image->height, 0, GL_RGB, GL_UNSIGNED_BYTE, image->data);
+        switch(image->type) {
+            case JPEG: {
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image->width, image->height, 0, GL_RGB, GL_UNSIGNED_BYTE, image->data);
+            } break;
+            
+            case PNG: {
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image->width, image->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image->data);
+            } break;
+            
+            default: {
+                assert(0); // Invalid or unsupported extension
+            }
+        }
+        
         glGenerateMipmap(GL_TEXTURE_2D);
     }
     
@@ -43,8 +89,33 @@ GL_Texture2D gl_texture_2d(GL_Image *image) {
 }
 
 
+static GL_Image_Extension gl_get_image_file_extension(char *filename_nt) {
+    int str_length = (int)strlen(filename_nt);
+    
+    int begin_ext_index = 0;
+    for(int i = str_length - 1; i > 0; --i) {
+        if(filename_nt[i] == '.') {
+            begin_ext_index = i;
+            break;
+        }
+    }
+    
+    if(begin_ext_index) {
+        for(int ext_index = 0; ext_index < countof(image_file_ext); ++ext_index) {
+            if(strcmp(&filename_nt[begin_ext_index + 1], image_file_ext[ext_index]) == 0) {
+                return (GL_Image_Extension)ext_index;
+            }
+        }
+    }
+    
+    return INVALID_EXTENSION;
+}
+
+
 GL_Image gl_load_image(char *file, int required_comp = 0) {
     GL_Image result = {};
+    result.type = gl_get_image_file_extension(file);
+    assert(result.type != INVALID_EXTENSION);
     result.data = stbi_load(file, &result.width, &result.height, &result.channels, required_comp);
     return result;
 }

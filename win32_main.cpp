@@ -19,7 +19,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
                                // Optional window styles
                                CS_OWNDC | CS_HREDRAW | CS_VREDRAW, 
                                window_class_name,          // Window class
-                               "App", // Window text
+                               "win32", // Window text
                                WS_OVERLAPPEDWINDOW,        // Window style
                                // Size and position
                                CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
@@ -47,7 +47,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     MSG msg = {};
     
     global_running = true;
-    
     
     while(global_running) {
         debug_hot_reload_app_dll(&dll_handle, &update_and_render);

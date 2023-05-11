@@ -14,17 +14,8 @@ struct __FILETIME {
     FILETIME write;
 };
 
-typedef void (__cdecl *Update_And_Render_Ptr)(Memory_Arena *, Input_State *);
-
-LRESULT CALLBACK win32_window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-internal int win32_set_pixel_format(HDC hdc);
-internal void win32_debug_enumerate_pixel_formats(HDC hdc);
-internal u32 win32_repack_key_state(WPARAM wParam);
-internal bool win32_load_app_dll(char *dll_name, HINSTANCE *dll_handle_out, Update_And_Render_Ptr *proc_address);
-internal void win32_hot_reload(HINSTANCE *loaded_dll_handle, Update_And_Render_Ptr *proc_address);
-internal void win32_process_message_queue(Input_State *state);
-
 #ifdef DEBUG
+#define assert(expression) if(!(expression)) { *(int*)0 = 0; }
 #define TIMED_BLOCK High_Resolution_Timer(__FUNCTION__)
 #define log(msg) OutputDebugStringA(msg)
 #define load_app_dll(dll_out, proc_address_out) win32_load_app_dll(APP_DLL_NAME_COPY, dll_out, proc_address_out)
@@ -34,7 +25,20 @@ internal void win32_process_message_queue(Input_State *state);
 #define log(msg)
 #define load_app_dll(dll_out, proc_address_out) win32_load_app_dll(APP_DLL_NAME, dll_out, proc_address_out)
 #define debug_hot_reload_app_dll(dll_out, proc_address_out)
+#define assert(expression)
 #endif
+
+#include "arena.h"
+#include "input.h"
+typedef void (__cdecl *Update_And_Render_Ptr)(Memory_Arena *, Input_State *);
+
+LRESULT CALLBACK win32_window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+internal int win32_set_pixel_format(HDC hdc);
+internal void win32_debug_enumerate_pixel_formats(HDC hdc);
+internal u32 win32_repack_key_state(WPARAM wParam);
+internal bool win32_load_app_dll(char *dll_name, HINSTANCE *dll_handle_out, Update_And_Render_Ptr *proc_address);
+internal void win32_hot_reload(HINSTANCE *loaded_dll_handle, Update_And_Render_Ptr *proc_address);
+internal void win32_process_message_queue(Input_State *state);
 
 #define WAS_DOWN(lParam) ((lParam & (1 << 30)) != 0)
 #define IS_DOWN(lParam) ((lParam & (1UL << 31)) == 0)

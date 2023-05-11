@@ -6,8 +6,7 @@
 #include "D:\Library\glm\glm\glm.hpp"
 #include "D:\Library\glm\glm\gtc\constants.hpp"
 #include "defines.h"
-#include "arena.h"
-#include "input.h"
+#include "stdio.h" // for console output
 
 #define APP_MEMORY_SIZE kilobytes(16)
 
@@ -21,10 +20,6 @@
 #include "GL/wglew.h"
 #include "opengl_utility/debug.h"
 #define os_read_entire_file(file_name, bytes_read) win32_read_entire_file(file_name, bytes_read)
-
-#ifdef DEBUG
-#include "stdio.h"
-#endif //DEBUG
 
 #elif defined(__APPLE__)
 #elif defined(__ANDROID__)

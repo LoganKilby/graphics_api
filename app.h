@@ -21,6 +21,7 @@ struct Application_State {
     u32 test_vao;
     u32 test_vbo;
     u32 test_program;
+    u32 texture_mix_program;
     
     GL_Vertex_Buffer v3f2f;
     GL_Texture2D alexstrasza;
