@@ -3,6 +3,9 @@
 #ifndef WIN32_PLATFORM_H
 #define WIN32_PLATFORM_H
 
+#define APP_DLL_NAME "app.dll"
+#define APP_DLL_NAME_COPY "app.copy.dll"
+
 #include "Windows.h"
 #include "Windowsx.h" // GET_X_PARAM, GET_Y_PARAM
 
@@ -17,8 +20,10 @@ struct __FILETIME {
     FILETIME write;
 };
 
+
+
 #ifdef DEBUG
-#define assert(expression) if(!(expression)) { *(int*)0 = 0; }
+
 #define TIMED_BLOCK High_Resolution_Timer(__FUNCTION__)
 #define log(msg) OutputDebugStringA(msg)
 #define load_app_dll(dll_out, proc_address_out) win32_load_app_dll(APP_DLL_NAME_COPY, dll_out, proc_address_out)
@@ -28,7 +33,6 @@ struct __FILETIME {
 #define log(msg)
 #define load_app_dll(dll_out, proc_address_out) win32_load_app_dll(APP_DLL_NAME, dll_out, proc_address_out)
 #define debug_hot_reload_app_dll(dll_out, proc_address_out)
-#define assert(expression)
 #endif
 
 #include "arena.h"
@@ -84,7 +88,7 @@ u8 *win32_read_entire_file(char *file_name, u32 *bytes_read_out) {
         // TODO(lmk): I'm not sure yet what allocation method to use for reading files.
         // Should the os use the memory allocated to the application instead of the heap?
         u32 file_size = GetFileSize(file_handle, 0);
-        result = (u8 *)SCRATCH_ALLOCATOR(file_size);
+        result = (u8 *)malloc(file_size);
         
         DWORD bytes_read = 0;
         BOOL read_status = ReadFile(file_handle, result, file_size, &bytes_read, 0);

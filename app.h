@@ -5,14 +5,6 @@
 
 #include "opengl_utility/core.h"
 
-#ifdef DEBUG
-#define SHADER_SOURCE_DIR "../shaders/"
-#else
-#define SHADER_SOURCE_DIR 
-#endif
-
-#define shader_path(name) SHADER_SOURCE_DIR##name
-
 struct Application_State {
     bool initialized;
     
@@ -23,7 +15,7 @@ struct Application_State {
     u32 test_program;
     u32 texture_mix_program;
     
-    GL_Vertex_Buffer v3f2f;
+    GL_Vertex_Buffer v3f_uv2f;
     GL_Texture2D alexstrasza;
     
     Memory_Arena scratch_arena;

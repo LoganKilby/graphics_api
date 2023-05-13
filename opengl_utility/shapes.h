@@ -3,8 +3,6 @@
 #ifndef SHAPES_H
 #define SHAPES_H
 
-#include "vector_math.h"
-
 struct v5 {
     float x;
     float y;
@@ -12,7 +10,6 @@ struct v5 {
     float u;
     float v;
 };
-
 
 #include "shader.h"
 
@@ -38,13 +35,70 @@ static GL_Rect gl_rect_texture_coords = {
 };
 
 
-inline void gl_rect(GL_Rect r, v4 color) {
+GLuint rect_indices[] = {
+    0, 1, 3,
+    1, 2, 3
+};
+
+static v5 cube_v3f_uv2f[] {
+    -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+    0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
+    0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+    0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+    
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+    0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+    0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+    0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+    -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+    
+    -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+    -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+    -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+    
+    0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+    0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+    0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+    0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+    0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+    0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+    
+    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+    0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
+    0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+    0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+    
+    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+    0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+    0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+    0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+    -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
+    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
+};
+
+
+void gl_rect(GL_Rect r, v4 color) {
+    v3 vertices[] = {
+        v3(r.tr.x, r.tr.y, 0),
+        v3(r.br.x, r.br.y, 0),
+        v3(r.bl.x, r.bl.y, 0),
+        v3(r.tl.x, r.tl.y, 0)
+    };
+    
     glUseProgram(gl_utility_context_ptr->static_color_program);
-    glUniform4f(gl_utility_context_ptr->static_color_uniform_color, color.r, color.g, color.b, color.a);
+    glUniform4fv(gl_utility_context_ptr->static_color_uniform_color, 1, (GLfloat *)&color);
     
     glBindVertexArray(gl_utility_context_ptr->rect_3f.vao);
     glBindBuffer(GL_ARRAY_BUFFER, gl_utility_context_ptr->rect_3f.vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(GL_Rect), (float *)&r, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), (float *)&vertices, GL_DYNAMIC_DRAW);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gl_utility_context_ptr->rect_3f.ebo);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0); // NOTE(lmk): The indices define 6 vertices from 4
 }
@@ -54,6 +108,40 @@ inline void gl_rect(v3 a, v3 b, v3 c, v3 d, v4 color) {
     gl_rect({a, b, c, d}, color);
 }
 
+void gl_rect(v2 origin, float width, float height, v4 color) {
+    float width_half = width/2;
+    float height_half = height/2;
+    
+    // 0,0 at top left
+    v4 tr = v4(origin.x + width_half, origin.y - height_half, 0, 1);
+    v4 br = v4(origin.x + width_half, origin.y + height_half, 0, 1);
+    v4 bl = v4(origin.x - width_half, origin.y + height_half, 0, 1);
+    v4 tl = v4(origin.x - width_half, origin.y - height_half, 0, 1);
+    
+    GL_Rect r;
+    r.tr = v2(gl_utility_context_ptr->ortho_2d * tr);
+    r.br = v2(gl_utility_context_ptr->ortho_2d * br);
+    r.bl = v2(gl_utility_context_ptr->ortho_2d * bl);
+    r.tl = v2(gl_utility_context_ptr->ortho_2d * tl);
+    
+    gl_rect(r, color);
+}
+
+// NOTE(lmk): 0,0 at top left
+void gl_rect(int left, int right, int top, int bottom, v4 color) {
+    v4 tr = v4(right, top, 0, 1);
+    v4 br = v4(right, bottom, 0, 1);
+    v4 bl = v4(left, bottom, 0, 1);
+    v4 tl = v4(left, top, 0, 1);
+    
+    GL_Rect r;
+    r.tr = v2(gl_utility_context_ptr->ortho_2d * tr);
+    r.br = v2(gl_utility_context_ptr->ortho_2d * br);
+    r.bl = v2(gl_utility_context_ptr->ortho_2d * bl);
+    r.tl = v2(gl_utility_context_ptr->ortho_2d * tl);
+    
+    gl_rect(r, color);
+}
 
 void gl_triangle(v3 a, v3 b, v3 c, v4 color) {
     v3 triangle_vertex_buffer[3] = {

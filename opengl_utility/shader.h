@@ -44,7 +44,7 @@ static GLuint gl_compile_shader(char *source, GLint source_length, GLenum type) 
             char info_log[MAX_INFO_LOG_LENGTH] = {};
             int length;
             glGetShaderiv(result, GL_INFO_LOG_LENGTH, &length);
-            assert(length < MAX_INFO_LOG_LENGTH);
+            gl_assert(length < MAX_INFO_LOG_LENGTH);
             glGetShaderInfoLog(result, sizeof(info_log), 0, info_log);
             fprintf(stderr, "%s\n", info_log);
         }
@@ -73,7 +73,7 @@ static GLuint gl_link_program(GL_Utility_Compiled_Shaders *compiled_shader_ids) 
         char info_log[MAX_INFO_LOG_LENGTH] = {};
         int length;
         glGetShaderiv(result, GL_INFO_LOG_LENGTH, &length);
-        assert(length < MAX_INFO_LOG_LENGTH);
+        gl_assert(length < MAX_INFO_LOG_LENGTH);
         glGetProgramInfoLog(result, MAX_INFO_LOG_LENGTH, NULL, info_log);
         fprintf(stderr, "%s\n", info_log);
     }
@@ -93,7 +93,7 @@ static GLint gl_get_uniform_location(GLuint program, const GLchar *name) {
     
     if(result == -1) {
         fprintf(stderr, "Uniform (%s) was not found in program %d\n", name, program);
-        assert(0);
+        gl_assert(0);
     }
     
     return result;

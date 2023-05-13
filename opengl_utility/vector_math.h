@@ -3,12 +3,13 @@
 #ifndef VECTOR_MATH_H
 #define VECTOR_MATH_H
 
-
 #ifdef GLM_VERSION
 typedef glm::vec2 v2;
 typedef glm::vec3 v3;
 typedef glm::vec4 v4;
+typedef glm::mat4 mat4;
 #define M_PI glm::pi<float>()
+#define radians(d) glm::radians<float>(d)
 #else
 #erorr GLM should be included
 struct v2 {
@@ -35,6 +36,8 @@ union v4 {
     
 };
 #endif
+
+// NOTE(lmk): glm ortho -- (left, right, bottom, top, near, far)
 
 v2 screen_to_ndc(v2 screen_pos, int screen_width, int screen_height) {
     v2 result;

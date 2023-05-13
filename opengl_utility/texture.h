@@ -3,6 +3,7 @@
 #ifndef TEXTURE_H
 #define TEXTURE_H
 
+#define STBI_ASSERT gl_assert
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb\stb_image.h"
 
@@ -48,11 +49,6 @@ struct GL_Image {
 };
 
 
-struct GL_File_Extension_String {
-    char ext[4];
-};
-
-
 GL_Texture2D gl_texture_2d(GL_Image *image) {
     GL_Texture2D result = {};
     
@@ -78,7 +74,7 @@ GL_Texture2D gl_texture_2d(GL_Image *image) {
             } break;
             
             default: {
-                assert(0); // Invalid or unsupported extension
+                gl_assert(0); // Invalid or unsupported extension
             }
         }
         
@@ -115,7 +111,7 @@ static GL_Image_Extension gl_get_image_file_extension(char *filename_nt) {
 GL_Image gl_load_image(char *file, int required_comp = 0) {
     GL_Image result = {};
     result.type = gl_get_image_file_extension(file);
-    assert(result.type != INVALID_EXTENSION);
+    gl_assert(result.type != INVALID_EXTENSION);
     result.data = stbi_load(file, &result.width, &result.height, &result.channels, required_comp);
     return result;
 }
@@ -129,7 +125,7 @@ void gl_free_image(GL_Image *image) {
 
 GL_Texture2D gl_texture_2d(char *filename) {
     GL_Image image = gl_load_image(filename);
-    assert(image.data);
+    gl_assert(image.data);
     GL_Texture2D result = gl_texture_2d(&image);
     gl_free_image(&image);
     return result;

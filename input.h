@@ -24,14 +24,13 @@ enum Input_Button {
     
 };
 
+struct Point {
+    int x, y;
+};
+
 #define SysMod_Ctrl 1
 #define SysMod_Shift 2
 #define SysMod_Alt 4
-
-struct Point {
-    int x;
-    int y;
-};
 
 struct Input_Event {
     Input_Device device;
@@ -49,7 +48,7 @@ struct Input_Event_List {
 
 struct Input_State {
     Input_Event_List event_list;
-    Point current_mouse_position;
+    Point mouse_pos;
 };
 
 internal bool push_input_event(Input_State *state, Input_Event event) {

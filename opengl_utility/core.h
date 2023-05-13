@@ -3,14 +3,14 @@
 #ifndef CORE_H
 #define CORE_H
 
+#ifdef DEBUG
+#define gl_assert(expression) if(!(expression)) { *(int *)0 = 0; }
+#else
+#define gl_assert(expression) fprintf(stderr, "GL Assert: %s(%d\n", __FUNCTION__, __LINE__);
+#endif
 
+#include "vector_math.h"
 #include "texture.h"
-
-
-GLuint rect_indices[] = {
-    0, 1, 3,
-    1, 2, 3
-};
 
 
 struct GL_Vertex_Buffer {
@@ -44,6 +44,8 @@ struct GL_Utility_Context {
     
     GL_Texture2D wall;
     GL_Texture2D awesome_face;
+    
+    mat4 ortho_2d;
 };
 
 
@@ -109,8 +111,12 @@ static void gl_utility_init(GL_Utility_Context *context) {
     sh.frag = gl_compile_shader(global_gl_texture_frag, frag_length, GL_FRAGMENT_SHADER);
     context->texture_program = gl_link_program(&sh);
     
-    context->awesome_face = gl_texture_2d("../opengl_utility/textures/awesomeface.png");
-    context->wall = gl_texture_2d("../opengl_utility/textures/wall.jpg");
+    context->awesome_face = gl_texture_2d("opengl_utility/textures/awesomeface.png");
+    context->wall = gl_texture_2d("opengl_utility/textures/wall.jpg");
+    
+    int width, height;
+    gl_get_viewport_dimensions(&width, &height);
+    context->ortho_2d = glm::ortho(0.0f, (f32)width, (f32)height, 0.0f, 0.1f, 100.0f);
     
     context->initialized = 1;
     gl_utility_context_ptr = context;
