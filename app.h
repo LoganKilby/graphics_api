@@ -4,6 +4,9 @@
 #define APP_H
 
 #include "opengl_utility/core.h"
+#define APP_MEMORY_SIZE kilobytes(16)
+
+#define CAMERA_SPEED 2.0f
 
 struct Application_State {
     bool initialized;
@@ -18,7 +21,7 @@ struct Application_State {
     GL_Vertex_Buffer v3f_uv2f;
     GL_Texture2D alexstrasza;
     
-    Memory_Arena scratch_arena;
+    v3 camera_pos;
 };
 
 #endif //APP_H

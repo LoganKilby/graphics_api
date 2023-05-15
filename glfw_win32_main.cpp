@@ -1,35 +1,27 @@
 #include "D:\Library\glm\glm\glm.hpp"
 #include "D:\Library\glm\glm\gtc\constants.hpp"
 #include "D:\Library\glm\glm\gtc\matrix_transform.hpp"
-#include "defines.h"
-#include "stdio.h" // for console output
-#define APP_MEMORY_SIZE kilobytes(16)
+
 #include "win32_platform.h"
-#include "GL/glew.h"
-#include "GL/wglew.h"
-#include "opengl_utility/debug.h"
-#include "D:/Library/glfw-3.3.8/include/GLFW/glfw3.h"
-#define os_read_entire_file(file_name, bytes_read) win32_read_entire_file(file_name, bytes_read)
 #include "app.h"
 #include "app.cpp"
 
-#define DEFAULT_WINDOW_WIDTH 800
-#define DEFAULT_WINDOW_HEIGHT 600
 
 int main() {
+    Platform_Stuff platform = {};
+    
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
     glfwWindowHint(GLFW_DOUBLEBUFFER, GLFW_TRUE);
     
-    GLFWwindow *window;
     {
         TIMED_BLOCK;
-        window = glfwCreateWindow(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, "win32_glfw", 0, 0);
+        platform.window = glfwCreateWindow(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, "win32_glfw", 0, 0);
     }
     
-    glfwMakeContextCurrent(window);
+    glfwMakeContextCurrent(platform.window);
     
     GLenum glew_status = glewInit();
     if(glew_status != GLEW_OK) {
@@ -48,19 +40,18 @@ int main() {
     app_memory.size = APP_MEMORY_SIZE;
     app_memory.base_address = VirtualAlloc(0, sizeof(Application_State), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     
-    Input_State input_state = {};
+#if DEBUG
+    assert(SetCurrentDirectory(DEBUG_WORKING_DIR));
+#endif
     
-    while(!glfwWindowShouldClose(window)) {
-        POINT cursor_pos;
-        GetCursorPos(&cursor_pos);
+    float last_frame_time = 0;
+    while(!glfwWindowShouldClose(platform.window)) {
+        float frame_time = (float)glfwGetTime();
+        platform.delta_time = frame_time - last_frame_time;
+        last_frame_time = frame_time;
         
-        double cursor_x, cursor_y;
-        glfwGetCursorPos(window, &cursor_x, &cursor_y);
-        input_state.mouse_pos.x = (int)cursor_x;
-        input_state.mouse_pos.y = (int)cursor_y;
-        
-        update_and_render(&app_memory, &input_state);
-        glfwSwapBuffers(window);
+        update_and_render(&app_memory, &platform);
+        glfwSwapBuffers(platform.window);
         glfwPollEvents();
     }
 }

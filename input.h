@@ -49,6 +49,7 @@ struct Input_Event_List {
 struct Input_State {
     Input_Event_List event_list;
     Point mouse_pos;
+    //GLFWwindow *window;
 };
 
 internal bool push_input_event(Input_State *state, Input_Event event) {

@@ -4,10 +4,10 @@
 #define VECTOR_MATH_H
 
 #ifdef GLM_VERSION
-typedef glm::vec2 v2;
-typedef glm::vec3 v3;
-typedef glm::vec4 v4;
-typedef glm::mat4 mat4;
+using namespace glm;
+typedef vec2 v2;
+typedef vec3 v3;
+typedef vec4 v4;
 #define M_PI glm::pi<float>()
 #define radians(d) glm::radians<float>(d)
 #else
@@ -37,12 +37,31 @@ union v4 {
 };
 #endif
 
+#define EPSILON 0.0006
+
+inline bool zero_vector(v3 v) {
+    bool result = 
+        (abs(v.x) < EPSILON) &&
+        (abs(v.y) < EPSILON) &&
+        (abs(v.z) < EPSILON);
+    
+    return result;
+}
+
 // NOTE(lmk): glm ortho -- (left, right, bottom, top, near, far)
 
 v2 screen_to_ndc(v2 screen_pos, int screen_width, int screen_height) {
     v2 result;
     result.x = ((screen_pos.x / screen_width)) * 2 - 1;
     result.y = ((screen_pos.y / screen_height)) * 2 - 1;
+    return result;
+}
+
+mat4 look_at(v3 camera_pos, v3 up, v3 target) {
+    mat4 result(1.0f);
+    
+    //result[0] = 
+    
     return result;
 }
 

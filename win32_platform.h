@@ -3,14 +3,21 @@
 #ifndef WIN32_PLATFORM_H
 #define WIN32_PLATFORM_H
 
-#define APP_DLL_NAME "app.dll"
-#define APP_DLL_NAME_COPY "app.copy.dll"
-
+#include "defines.h"
+#include "stdio.h" // for console output
 #include "Windows.h"
 #include "Windowsx.h" // GET_X_PARAM, GET_Y_PARAM
+#include "GL/glew.h"
+#include "GL/wglew.h"
+#include "D:/Library/glfw-3.3.8/include/GLFW/glfw3.h"
+#include "opengl_utility/debug.h"
 
-// TODO(lmk): How should I opt in/out of using glfw?
-
+#define DEBUG_WORKING_DIR "D:/GitHub/graphics_api/data"
+#define os_read_entire_file(file_name, bytes_read) win32_read_entire_file(file_name, bytes_read)
+#define APP_DLL_NAME "app.dll"
+#define APP_DLL_NAME_COPY "app.copy.dll"
+#define DEFAULT_WINDOW_WIDTH 1280
+#define DEFAULT_WINDOW_HEIGHT 720
 
 // NOTE(lmk): __cdecl is microsoft-specific
 
@@ -20,10 +27,7 @@ struct __FILETIME {
     FILETIME write;
 };
 
-
-
 #ifdef DEBUG
-
 #define TIMED_BLOCK High_Resolution_Timer(__FUNCTION__)
 #define log(msg) OutputDebugStringA(msg)
 #define load_app_dll(dll_out, proc_address_out) win32_load_app_dll(APP_DLL_NAME_COPY, dll_out, proc_address_out)
@@ -35,8 +39,14 @@ struct __FILETIME {
 #define debug_hot_reload_app_dll(dll_out, proc_address_out)
 #endif
 
+struct Platform_Stuff {
+    GLFWwindow *window;
+    float delta_time;
+};
+
 #include "arena.h"
 #include "input.h"
+
 typedef void (__cdecl *Update_And_Render_Ptr)(Memory_Arena *, Input_State *);
 
 LRESULT CALLBACK win32_window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);

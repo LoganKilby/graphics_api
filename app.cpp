@@ -1,4 +1,4 @@
-extern "C" __declspec(dllexport) void update_and_render(Memory_Arena *platform_memory, Input_State *input) {
+void update_and_render(Memory_Arena *platform_memory, Platform_Stuff *platform) {
     Application_State *app_state = (Application_State *)platform_memory->base_address;
     assert(sizeof(Application_State) < APP_MEMORY_SIZE); // NOTE(lmk): Increase app memory size
     
@@ -26,7 +26,6 @@ extern "C" __declspec(dllexport) void update_and_render(Memory_Arena *platform_m
         sh.frag = gl_compile_shader(frag_source, src_size, GL_FRAGMENT_SHADER);
         app_state->texture_mix_program = gl_link_program(&sh);
         
-        
         glClearColor(0, 0, 0, 0);
         
         gl_vertex_buffer_3f2f(&app_state->v3f_uv2f);
@@ -37,6 +36,7 @@ extern "C" __declspec(dllexport) void update_and_render(Memory_Arena *platform_m
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         
+        app_state->camera_pos = v3(0, 0, 3);
         
         app_state->initialized = true;
     }
@@ -57,8 +57,24 @@ extern "C" __declspec(dllexport) void update_and_render(Memory_Arena *platform_m
         {-0.5, 0.5, 0, 0, 1}
     };
     
+    v3 world_up = v3(0, 1, 0);
+    v3 camera_up = v3(0, 1, 0);
+    v3 camera_front = v3(0, 0, -1);
+    v3 camera_move = v3(0);
+    if(glfwGetKey(platform->window, GLFW_KEY_W) == GLFW_PRESS)
+        camera_move += camera_front;
+    if(glfwGetKey(platform->window, GLFW_KEY_S) == GLFW_PRESS)
+        camera_move -= camera_front;
+    if(glfwGetKey(platform->window, GLFW_KEY_A) == GLFW_PRESS)
+        camera_move -= normalize(cross(camera_front, camera_up));
+    if(glfwGetKey(platform->window, GLFW_KEY_D) == GLFW_PRESS)
+        camera_move += normalize(cross(camera_front, camera_up));
+    
+    if(!zero_vector(camera_move))
+        app_state->camera_pos += normalize(camera_move) * CAMERA_SPEED * platform->delta_time;
+    
+    mat4 view = lookAt(app_state->camera_pos, app_state->camera_pos + camera_front, camera_up);
     mat4 model = glm::rotate(mat4(1.0f), radians(-55.0f), v3(1, 0, 0));
-    mat4 view = glm::translate(mat4(1.0f), v3(0, 0, -3));
     mat4 projection = glm::perspective(radians(45.0f), (f32)screen_width / (f32)screen_height, 0.1f, 100.0f);
     
     glBindVertexArray(app_state->gl_utility_context.rect_3f2f.vao);
@@ -97,22 +113,11 @@ extern "C" __declspec(dllexport) void update_and_render(Memory_Arena *platform_m
     glBufferData(GL_ARRAY_BUFFER, sizeof(cube_v3f_uv2f), cube_v3f_uv2f, GL_STATIC_DRAW);
     for(int i = 0; i < countof(cubePositions); ++i) {
         model = mat4(1.0f);
-        model = glm::translate(model, cubePositions[i]);
+        model = translate(model, cubePositions[i]);
         float angle = 20.0f * i;
-        model = glm::rotate(model, radians(angle), v3(1, 0.3, 0.5));
+        model = rotate(model, radians(angle), v3(1, 0.3, 0.5));
         transform = projection * view * model;
         glUniformMatrix4fv(transform_location, 1, GL_FALSE, (f32 *)&transform);
         glDrawArrays(GL_TRIANGLES, 0, 36);
     }
-    
-    mat4 ortho = glm::ortho(0.0f, (f32)screen_width, (f32)screen_height, 0.0f, 0.1f, 100.0f);
-    v4 p = v4(0, 0, 0, 1);
-    v4 q = v4(screen_width, screen_height, 0, 1);
-    v4 s = ortho * p; // (-1, 1)
-    v4 t = ortho * q; // (1, -1)
-    
-    v4 a = v4(500,200,0,1);
-    v4 av = ortho * a;
-    
-    gl_rect(0, 100, 0, screen_height, v4(1, 0, 0, 0.5));
 }
