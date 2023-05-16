@@ -85,6 +85,58 @@ static v5 cube_v3f_uv2f[] {
 };
 
 
+static v5 cube_v3f[] {
+    -0.5f, -0.5f, -0.5f,
+    0.5f, -0.5f, -0.5f,
+    0.5f,  0.5f, -0.5f,
+    0.5f,  0.5f, -0.5f,
+    -0.5f,  0.5f, -0.5f,
+    -0.5f, -0.5f, -0.5f,
+    
+    -0.5f, -0.5f,  0.5f,
+    0.5f, -0.5f,  0.5f,
+    0.5f,  0.5f,  0.5f,
+    0.5f,  0.5f,  0.5f,
+    -0.5f,  0.5f,  0.5f,
+    -0.5f, -0.5f,  0.5f,
+    
+    -0.5f,  0.5f,  0.5f,
+    -0.5f,  0.5f, -0.5f,
+    -0.5f, -0.5f, -0.5f,
+    -0.5f, -0.5f, -0.5f,
+    -0.5f, -0.5f,  0.5f,
+    -0.5f,  0.5f,  0.5f,
+    
+    0.5f,  0.5f,  0.5f,
+    0.5f,  0.5f, -0.5f,
+    0.5f, -0.5f, -0.5f,
+    0.5f, -0.5f, -0.5f,
+    0.5f, -0.5f,  0.5f,
+    0.5f,  0.5f,  0.5f,
+    
+    -0.5f, -0.5f, -0.5f,
+    0.5f, -0.5f, -0.5f,
+    0.5f, -0.5f,  0.5f,
+    0.5f, -0.5f,  0.5f,
+    -0.5f, -0.5f,  0.5f,
+    -0.5f, -0.5f, -0.5f,
+    
+    -0.5f,  0.5f, -0.5f,
+    0.5f,  0.5f, -0.5f,
+    0.5f,  0.5f,  0.5f,
+    0.5f,  0.5f,  0.5f,
+    -0.5f,  0.5f,  0.5f,
+    -0.5f,  0.5f, -0.5f,
+};
+
+inline f32 *get_vertices_cube(size_t *buffer_size, size_t *vertex_size) {
+    f32 *result = (f32 *)cube_v3f_uv2f;
+    *buffer_size = sizeof(cube_v3f_uv2f);
+    *vertex_size = sizeof(cube_v3f_uv2f[0]);
+    return result;
+}
+
+
 void gl_rect(GL_Rect r, v4 color) {
     v3 vertices[] = {
         v3(r.tr.x, r.tr.y, 0),
@@ -93,8 +145,8 @@ void gl_rect(GL_Rect r, v4 color) {
         v3(r.tl.x, r.tl.y, 0)
     };
     
-    glUseProgram(gl_utility_context_ptr->static_color_program);
-    glUniform4fv(gl_utility_context_ptr->static_color_uniform_color, 1, (GLfloat *)&color);
+    glUseProgram(gl_utility_context_ptr->program_static_color_v3f);
+    glUniform4fv(gl_utility_context_ptr->uniform_static_color_v3f_color, 1, (GLfloat *)&color);
     
     glBindVertexArray(gl_utility_context_ptr->rect_3f.vao);
     glBindBuffer(GL_ARRAY_BUFFER, gl_utility_context_ptr->rect_3f.vbo);
@@ -151,8 +203,8 @@ void gl_triangle(v3 a, v3 b, v3 c, v4 color) {
     glBindVertexArray(gl_utility_context_ptr->rect_3f.vao);
     glBindBuffer(GL_ARRAY_BUFFER, gl_utility_context_ptr->rect_3f.vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(triangle_vertex_buffer), triangle_vertex_buffer, GL_DYNAMIC_DRAW);
-    glUseProgram(gl_utility_context_ptr->static_color_program);
-    glUniform4f(gl_utility_context_ptr->static_color_uniform_color, color.r, color.g, color.b, color.a);
+    glUseProgram(gl_utility_context_ptr->program_static_color_v3f);
+    glUniform4f(gl_utility_context_ptr->uniform_static_color_v3f_color, color.r, color.g, color.b, color.a);
     glDrawArrays(GL_TRIANGLES, 0, countof(triangle_vertex_buffer));
 }
 
@@ -194,7 +246,8 @@ void gl_texture_rect(GL_Rect r, GL_Texture2D texture) {
         {r.tl.x, r.tl.y, 0, 0, 1},
     };
     
-    glUseProgram(gl_utility_context_ptr->texture_program);
+    glUseProgram(gl_utility_context_ptr->program_texture_v3f_uv2f);
+    glUniform1i(gl_utility_context_ptr->uniform_texture_v3f_uv2f_texture0, 0);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, texture.id);
     
@@ -204,5 +257,25 @@ void gl_texture_rect(GL_Rect r, GL_Texture2D texture) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gl_utility_context_ptr->rect_3f2f.ebo);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0); // NOTE(lmk): The indices define 6 vertices from 4
 }
+
+#if 0
+void gl_cube() {
+    glBindVertexArray(app_state->v3f_uv2f.vao);
+    glBindBuffer(GL_ARRAY_BUFFER, app_state->v3f_uv2f.vbo);
+    glBufferData(GL_ARRAY_BUFFER, cube_buffer_size, cube_vertices, GL_STATIC_DRAW);
+    glUseProgram(app_state->texture_mix_program);
+    tex0_location = gl_get_uniform_location(app_state->texture_mix_program, "texture0");
+    tex1_location = gl_get_uniform_location(app_state->texture_mix_program, "texture1");
+    transform_location = gl_get_uniform_location(app_state->texture_mix_program, "transform");
+    glUniform1i(tex0_location, 0);
+    glUniform1i(tex1_location, 1);
+    glUniformMatrix4fv(transform_location, 1, GL_FALSE, (f32 *)&transform);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, app_state->gl_utility_context.wall.id);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, app_state->gl_utility_context.awesome_face.id);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+}
+#endif
 
 #endif //SHAPES_H

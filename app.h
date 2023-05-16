@@ -16,14 +16,15 @@ struct Application_State {
     u32 test_program;
     u32 texture_mix_program;
     
-    GL_Vertex_Buffer v3f_uv2f;
+    GL_Array_Buffer v3f_uv2f;
     GL_Texture2D alexstrasza;
     
-    v3 camera_pos;
-    v3 camera_front;
+    Camera_Orientation camera;
     
     f32 yaw;
     f32 pitch;
+    
+    v3 player_pos;
 };
 
 #endif //APP_H

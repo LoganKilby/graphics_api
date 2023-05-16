@@ -26,27 +26,40 @@ static char *global_gl_texture_vert =
 static char *global_gl_texture_frag =
 #include "shaders/texture.frag"
 ;
+static char *global_gl_mvp_static_color_vert =
+#include "shaders/transform_mvp_static_color.vert"
+;
 
 #define MAX_INFO_LOG_LENGTH 1024
 
 
-static GLuint gl_compile_shader(char *source, GLint source_length, GLenum type) {
+static bool gl_check_compile_status(GLuint id) {
+    GLint compile_status;
+    glGetShaderiv(id, GL_COMPILE_STATUS, &compile_status);
+    bool result = (compile_status == GL_FALSE);
+    if(result) {
+        char info_log[MAX_INFO_LOG_LENGTH] = {};
+        int length;
+        glGetShaderiv(id, GL_INFO_LOG_LENGTH, &length);
+        glGetShaderInfoLog(id, sizeof(info_log), 0, info_log);
+        fprintf(stderr, "%s\n", info_log);
+    }
+    
+    return result;
+}
+
+
+static GLuint gl_compile_shader(char *source, GLint length, GLenum type) {
     GLuint result = 0;
     
     if(source) {
         result = glCreateShader(type);
-        glShaderSource(result, 1, &source, &source_length);
+        glShaderSource(result, 1, &source, 0);
         glCompileShader(result);
         
-        GLint compile_status;
-        glGetShaderiv(result, GL_COMPILE_STATUS, &compile_status);
-        if(compile_status == GL_FALSE) {
-            char info_log[MAX_INFO_LOG_LENGTH] = {};
-            int length;
-            glGetShaderiv(result, GL_INFO_LOG_LENGTH, &length);
-            gl_assert(length < MAX_INFO_LOG_LENGTH);
-            glGetShaderInfoLog(result, sizeof(info_log), 0, info_log);
-            fprintf(stderr, "%s\n", info_log);
+        if(gl_check_compile_status(result)) {
+            fprintf(stderr, "%s\n", source);
+            assert(0);
         }
     }
     
@@ -73,7 +86,6 @@ static GLuint gl_link_program(GL_Utility_Compiled_Shaders *compiled_shader_ids) 
         char info_log[MAX_INFO_LOG_LENGTH] = {};
         int length;
         glGetShaderiv(result, GL_INFO_LOG_LENGTH, &length);
-        gl_assert(length < MAX_INFO_LOG_LENGTH);
         glGetProgramInfoLog(result, MAX_INFO_LOG_LENGTH, NULL, info_log);
         fprintf(stderr, "%s\n", info_log);
     }
@@ -81,8 +93,6 @@ static GLuint gl_link_program(GL_Utility_Compiled_Shaders *compiled_shader_ids) 
     // TODO(lmk): Can this be done before linking?
     for(int id_index = 0; id_index < count; ++id_index)
         glDeleteShader(id_list[id_index]);
-    
-    *compiled_shader_ids = {};
     
     return result;
 }

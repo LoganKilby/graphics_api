@@ -4,8 +4,12 @@
 
 #include "win32_platform.h"
 #include "tweak.h"
+
+#include "camera.cpp"
+
 #include "app.h"
 #include "app.cpp"
+
 
 global Platform_Stuff platform;
 

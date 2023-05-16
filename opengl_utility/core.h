@@ -13,7 +13,7 @@
 #include "texture.h"
 
 
-struct GL_Vertex_Buffer {
+struct GL_Array_Buffer {
     GLuint vbo;
     GLuint vao;
 };
@@ -36,11 +36,19 @@ struct GL_Utility_Context {
     
     GL_Element_Buffer rect_3f2f;
     GL_Element_Buffer rect_3f;
+    GL_Array_Buffer cube_3f;
     
-    GLuint static_color_program;
-    GLuint static_color_uniform_color;
-    GLuint texture_program;
-    GLuint texture_program_uniform;
+    GLuint program_static_color_v3f;
+    GLint uniform_static_color_v3f_color;
+    
+    GLuint program_texture_v3f_uv2f;
+    GLint uniform_texture_v3f_uv2f_texture0;
+    
+    GLuint program_transform_static_color_v3f;
+    GLint uniform_transform_static_color_v3f_color;
+    GLint uniform_transform_static_color_v3f_model;
+    GLint uniform_transform_static_color_v3f_view;
+    GLint uniform_transform_static_color_v3f_projection;
     
     GL_Texture2D wall;
     GL_Texture2D awesome_face;
@@ -83,6 +91,7 @@ char *gl_get_error_string(GLenum err) {
 
 static void gl_element_buffer_3f(GL_Element_Buffer *o, GLuint *indices, int index_count);
 static void gl_element_buffer_3f2f(GL_Element_Buffer *o, GLuint *indices, int index_count);
+static void gl_array_buffer_3f(GL_Array_Buffer *o);
 
 
 static void gl_utility_init(GL_Utility_Context *context) {
@@ -90,26 +99,42 @@ static void gl_utility_init(GL_Utility_Context *context) {
     
     stbi_set_flip_vertically_on_load(true);
     
-    // Shapes
     gl_element_buffer_3f(&context->rect_3f, rect_indices, countof(rect_indices));
     gl_element_buffer_3f2f(&context->rect_3f2f, rect_indices, countof(rect_indices));
+    gl_array_buffer_3f(&context->cube_3f);
     
-    // ... more shapes
-    glBindVertexArray(0);
+    GLuint shape_vert = gl_compile_shader(global_gl_shape_vert, 0, GL_VERTEX_SHADER);
+    GLuint mvp_static_color_vert = gl_compile_shader(global_gl_mvp_static_color_vert, 0, GL_VERTEX_SHADER);
+    GLuint texture_vert = gl_compile_shader(global_gl_texture_vert, 0, GL_VERTEX_SHADER);
+    GLuint texture_frag = gl_compile_shader(global_gl_texture_frag, 0, GL_FRAGMENT_SHADER);
+    GLuint shape_frag = gl_compile_shader(global_gl_shape_frag, 0, GL_FRAGMENT_SHADER);
     
     GL_Utility_Compiled_Shaders sh = {};
-    GLint vert_length = (GLint)strlen(global_gl_shape_vert);
-    sh.vert = gl_compile_shader(global_gl_shape_vert, vert_length, GL_VERTEX_SHADER);
-    GLint frag_length = (GLint)strlen(global_gl_shape_frag);
-    sh.frag = gl_compile_shader(global_gl_shape_frag, frag_length, GL_FRAGMENT_SHADER);
-    context->static_color_program = gl_link_program(&sh);
-    context->static_color_uniform_color = gl_get_uniform_location(context->static_color_program, "uniform_fragment_color");
+    sh.vert = shape_vert;
+    sh.frag = shape_frag;
+    context->program_static_color_v3f = gl_link_program(&sh);
+    context->uniform_static_color_v3f_color = gl_get_uniform_location(context->program_static_color_v3f, "u_color");
+    sh = {};
     
-    vert_length = (GLint)strlen(global_gl_texture_vert);
-    frag_length = (GLint)strlen(global_gl_texture_frag);
-    sh.vert = gl_compile_shader(global_gl_texture_vert, vert_length, GL_VERTEX_SHADER);
-    sh.frag = gl_compile_shader(global_gl_texture_frag, frag_length, GL_FRAGMENT_SHADER);
-    context->texture_program = gl_link_program(&sh);
+    sh.vert = texture_vert;
+    sh.frag = texture_frag;
+    context->program_texture_v3f_uv2f = gl_link_program(&sh);
+    sh = {};
+    
+    sh.vert = mvp_static_color_vert;
+    sh.frag = shape_frag;
+    context->program_transform_static_color_v3f = gl_link_program(&sh);
+    context->uniform_transform_static_color_v3f_color = gl_get_uniform_location(context->program_transform_static_color_v3f, "u_color");
+    context->uniform_transform_static_color_v3f_view = gl_get_uniform_location(context->program_transform_static_color_v3f, "u_view");
+    context->uniform_transform_static_color_v3f_model = gl_get_uniform_location(context->program_transform_static_color_v3f, "u_model");
+    context->uniform_transform_static_color_v3f_projection = gl_get_uniform_location(context->program_transform_static_color_v3f, "u_projection");
+    sh = {};
+    
+    glDeleteShader(shape_vert);
+    glDeleteShader(mvp_static_color_vert);
+    glDeleteShader(texture_vert);
+    glDeleteShader(texture_frag);
+    glDeleteShader(shape_frag);
     
     context->awesome_face = gl_texture_2d("opengl_utility/textures/awesomeface.png");
     context->wall = gl_texture_2d("opengl_utility/textures/wall.jpg");
@@ -140,7 +165,7 @@ static void gl_vertex_buffer_3f3f(GLuint *vao_out, GLuint *vbo_out) {
 }
 
 
-static void gl_vertex_buffer_3f2f(GL_Vertex_Buffer *o) {
+static void gl_array_buffer_3f2f(GL_Array_Buffer *o) {
     glGenBuffers(1, &o->vbo);
     glGenVertexArrays(1, &o->vao);
     
@@ -150,6 +175,16 @@ static void gl_vertex_buffer_3f2f(GL_Vertex_Buffer *o) {
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
+}
+
+static void gl_array_buffer_3f(GL_Array_Buffer *o) {
+    glGenBuffers(1, &o->vbo);
+    glGenVertexArrays(1, &o->vao);
+    
+    glBindVertexArray(o->vao);
+    glBindBuffer(GL_ARRAY_BUFFER, o->vbo);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
+    glEnableVertexAttribArray(0);
 }
 
 

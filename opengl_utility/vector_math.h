@@ -12,10 +12,12 @@ typedef vec4 v4;
 #define radians(d) glm::radians<float>(d)
 #else
 #erorr GLM should be included
+
 struct v2 {
     float x;
     float y;
 };
+
 struct v3 {
     union {
         float x, y, z;
@@ -25,6 +27,7 @@ struct v3 {
         float r, g, b;
     };
 };
+
 union v4 {
     struct {
         float x, y, z, w;
@@ -35,6 +38,7 @@ union v4 {
     };
     
 };
+
 #endif
 
 #define EPSILON 0.0006
@@ -72,10 +76,10 @@ struct Basis {
     v3 up;
 };
 
-void basis_from_front(Basis *basis, v3 front) {
+void basis_from_front(Basis *basis, v3 front, v3 up = v3(0, 1, 0)) {
     basis->front = normalize(front);
-    basis->right = normalize(cross(front, WORLD_UP));
-    basis->up = normalize(cross(right, front));
+    basis->right = normalize(cross(basis->front, up));
+    basis->up = normalize(cross(basis->right, basis->front));
 }
 
 
