@@ -48,7 +48,16 @@ inline bool zero_vector(v3 v) {
     return result;
 }
 
+inline bool zero_vector(v2 v) {
+    bool result = 
+        (abs(v.x) < EPSILON) &&
+        (abs(v.y) < EPSILON);
+    
+    return result;
+}
+
 // NOTE(lmk): glm ortho -- (left, right, bottom, top, near, far)
+// NOTE(lmk): glm lookAt -- (eye, center, up)
 
 v2 screen_to_ndc(v2 screen_pos, int screen_width, int screen_height) {
     v2 result;
@@ -57,12 +66,18 @@ v2 screen_to_ndc(v2 screen_pos, int screen_width, int screen_height) {
     return result;
 }
 
-mat4 look_at(v3 camera_pos, v3 up, v3 target) {
-    mat4 result(1.0f);
-    
-    //result[0] = 
-    
-    return result;
+struct Basis {
+    v3 front;
+    v3 right;
+    v3 up;
+};
+
+void basis_from_front(Basis *basis, v3 front) {
+    basis->front = normalize(front);
+    basis->right = normalize(cross(front, WORLD_UP));
+    basis->up = normalize(cross(right, front));
 }
+
+
 
 #endif //VECTOR_MATH_H

@@ -3,11 +3,16 @@
 #include "D:\Library\glm\glm\gtc\matrix_transform.hpp"
 
 #include "win32_platform.h"
+#include "tweak.h"
 #include "app.h"
 #include "app.cpp"
 
+global Platform_Stuff platform;
+
+void glfw_window_focus_callback(GLFWwindow* window, int focused);
+
 int main() {
-    Platform_Stuff platform = {};
+    platform = {};
     
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -21,12 +26,14 @@ int main() {
     }
     
     glfwMakeContextCurrent(platform.window);
+    glfwSetInputMode(platform.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     
     GLenum glew_status = glewInit();
     if(glew_status != GLEW_OK) {
         fprintf(stderr, "Error: %s\n", glewGetErrorString(glew_status));
     }
     
+    glfwSetWindowFocusCallback(platform.window, glfw_window_focus_callback);
     //glfwSetWindowSizeCallback();
     //glfwSetWindowFramebufferSizeCallback();
     //glfwSetKeyCallback();
@@ -43,11 +50,19 @@ int main() {
     assert(SetCurrentDirectory(DEBUG_WORKING_DIR));
 #endif
     
+    double cursor_x, cursor_y;
+    glfwGetCursorPos(platform.window, &cursor_x, &cursor_y);
+    platform.mouse_pos = v2(cursor_x, cursor_y);
+    
     float last_frame_time = 0;
     while(!glfwWindowShouldClose(platform.window)) {
         float frame_time = (float)glfwGetTime();
         platform.delta_time = frame_time - last_frame_time;
         last_frame_time = frame_time;
+        
+        glfwGetCursorPos(platform.window, &cursor_x, &cursor_y);
+        platform.mouse_diff = v2(cursor_x - platform.mouse_pos.x, platform.mouse_pos.y - cursor_y);
+        platform.mouse_pos = v2(cursor_x, cursor_y);
         
         update_and_render(&app_memory, &platform);
         glfwSwapBuffers(platform.window);
@@ -55,3 +70,18 @@ int main() {
     }
 }
 
+void glfw_window_focus_callback(GLFWwindow* window, int focused)
+{
+    if (focused)
+    {
+        // The window gained input focus
+        double mouse_x, mouse_y;
+        glfwGetCursorPos(window, &mouse_x, &mouse_y);
+        platform.mouse_diff = {};
+        platform.mouse_pos = v2(mouse_x, mouse_y);
+    }
+    else
+    {
+        // The window lost input focus
+    }
+}

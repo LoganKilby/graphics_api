@@ -3,10 +3,8 @@
 #ifndef APP_H
 #define APP_H
 
-#include "opengl_utility/core.h"
 #define APP_MEMORY_SIZE kilobytes(16)
-
-#define CAMERA_SPEED 2.0f
+#define WORLD_UP v3(0, 1, 0)
 
 struct Application_State {
     bool initialized;
@@ -22,6 +20,10 @@ struct Application_State {
     GL_Texture2D alexstrasza;
     
     v3 camera_pos;
+    v3 camera_front;
+    
+    f32 yaw;
+    f32 pitch;
 };
 
 #endif //APP_H

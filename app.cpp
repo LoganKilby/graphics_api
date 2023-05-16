@@ -37,6 +37,8 @@ void update_and_render(Memory_Arena *platform_memory, Platform_Stuff *platform) 
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         
         app_state->camera_pos = v3(0, 0, 3);
+        app_state->camera_front = v3(0, 0, -1);
+        app_state->yaw = -90.0f;
         
         app_state->initialized = true;
     }
@@ -50,32 +52,44 @@ void update_and_render(Memory_Arena *platform_memory, Platform_Stuff *platform) 
     int screen_height = 600;
     int screen_height_half = screen_height / 2;
     
+    v3 world_up = v3(0, 1, 0);
+    
+    if(!zero_vector(platform->mouse_diff)) {
+        app_state->yaw += platform->mouse_diff.x * MOUSE_SENSITIVITY;
+        app_state->pitch += platform->mouse_diff.y * MOUSE_SENSITIVITY;
+        app_state->pitch = clamp(app_state->pitch, -89.0f, 89.0f);
+        
+        app_state->camera_front.x = cos(radians(app_state->yaw)) * cos(radians(app_state->pitch));
+        app_state->camera_front.y = sin(radians(app_state->pitch));
+        app_state->camera_front.z = sin(radians(app_state->yaw)) * cos(radians(app_state->pitch));
+        app_state->camera_front = normalize(app_state->camera_front);
+    }
+    v3 camera_right = normalize(cross(app_state->camera_front, WORLD_UP));
+    v3 camera_up = normalize(cross(camera_right, app_state->camera_front));
+    
+    v3 camera_move = v3(0);
+    if(glfwGetKey(platform->window, GLFW_KEY_W) == GLFW_PRESS)
+        camera_move += app_state->camera_front;
+    if(glfwGetKey(platform->window, GLFW_KEY_S) == GLFW_PRESS)
+        camera_move -= app_state->camera_front;
+    if(glfwGetKey(platform->window, GLFW_KEY_A) == GLFW_PRESS)
+        camera_move -= normalize(cross(app_state->camera_front, camera_up));
+    if(glfwGetKey(platform->window, GLFW_KEY_D) == GLFW_PRESS)
+        camera_move += normalize(cross(app_state->camera_front, camera_up));
+    
+    if(!zero_vector(camera_move))
+        app_state->camera_pos += normalize(camera_move) * CAMERA_SPEED * platform->delta_time;
+    
+    mat4 view = lookAt(app_state->camera_pos, app_state->camera_pos + app_state->camera_front, camera_up);
+    mat4 model = rotate(mat4(1.0f), radians(-55.0f), v3(1, 0, 0));
+    mat4 projection = perspective(radians(45.0f), (f32)screen_width / (f32)screen_height, 0.1f, 100.0f);
+    
     v5 vertex_buffer[] = {
         {0.5, 0.5, 0, 1, 1},
         {0.5, -0.5, 0, 1, 0},
         {-0.5, -0.5, 0, 0, 0},
         {-0.5, 0.5, 0, 0, 1}
     };
-    
-    v3 world_up = v3(0, 1, 0);
-    v3 camera_up = v3(0, 1, 0);
-    v3 camera_front = v3(0, 0, -1);
-    v3 camera_move = v3(0);
-    if(glfwGetKey(platform->window, GLFW_KEY_W) == GLFW_PRESS)
-        camera_move += camera_front;
-    if(glfwGetKey(platform->window, GLFW_KEY_S) == GLFW_PRESS)
-        camera_move -= camera_front;
-    if(glfwGetKey(platform->window, GLFW_KEY_A) == GLFW_PRESS)
-        camera_move -= normalize(cross(camera_front, camera_up));
-    if(glfwGetKey(platform->window, GLFW_KEY_D) == GLFW_PRESS)
-        camera_move += normalize(cross(camera_front, camera_up));
-    
-    if(!zero_vector(camera_move))
-        app_state->camera_pos += normalize(camera_move) * CAMERA_SPEED * platform->delta_time;
-    
-    mat4 view = lookAt(app_state->camera_pos, app_state->camera_pos + camera_front, camera_up);
-    mat4 model = glm::rotate(mat4(1.0f), radians(-55.0f), v3(1, 0, 0));
-    mat4 projection = glm::perspective(radians(45.0f), (f32)screen_width / (f32)screen_height, 0.1f, 100.0f);
     
     glBindVertexArray(app_state->gl_utility_context.rect_3f2f.vao);
     glBindBuffer(GL_ARRAY_BUFFER, app_state->gl_utility_context.rect_3f2f.vbo);

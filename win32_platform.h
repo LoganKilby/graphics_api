@@ -10,7 +10,9 @@
 #include "GL/glew.h"
 #include "GL/wglew.h"
 #include "D:/Library/glfw-3.3.8/include/GLFW/glfw3.h"
+#include "opengl_utility/core.h"
 #include "opengl_utility/debug.h"
+
 
 #define DEBUG_WORKING_DIR "D:/GitHub/graphics_api/data"
 #define os_read_entire_file(file_name, bytes_read) win32_read_entire_file(file_name, bytes_read)
@@ -42,6 +44,8 @@ struct __FILETIME {
 struct Platform_Stuff {
     GLFWwindow *window;
     float delta_time;
+    v2 mouse_pos;
+    v2 mouse_diff;
 };
 
 #include "arena.h"
