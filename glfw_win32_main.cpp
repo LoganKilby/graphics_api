@@ -6,7 +6,6 @@
 #include "app.h"
 #include "app.cpp"
 
-
 int main() {
     Platform_Stuff platform = {};
     

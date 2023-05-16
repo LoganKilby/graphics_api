@@ -1,10 +1,5 @@
-
-main.obj
 *.ilk
 *.pdb
-*.exe
-build/win32_main.obj
-*.exp
-*.lib
 *.obj
-*.dll
+
+
