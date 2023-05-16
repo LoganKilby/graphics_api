@@ -12,7 +12,7 @@
 #include "D:/Library/glfw-3.3.8/include/GLFW/glfw3.h"
 #include "opengl_utility/core.h"
 #include "opengl_utility/debug.h"
-
+#include "../cfile/cfile.h"
 
 #define DEBUG_WORKING_DIR "D:/GitHub/graphics_api/data"
 #define os_read_entire_file(file_name, bytes_read) win32_read_entire_file(file_name, bytes_read)
@@ -41,15 +41,19 @@ struct __FILETIME {
 #define debug_hot_reload_app_dll(dll_out, proc_address_out)
 #endif
 
+#include "arena.h"
+#include "input.h"
+
 struct Platform_Stuff {
     GLFWwindow *window;
     float delta_time;
     v2 mouse_pos;
     v2 mouse_diff;
+    v2 mouse_scroll_delta;
+    
+    void glfw_mouse_scroll_callback(GLFWwindow *window, double x_offset, double y_offset);
+    void glfw_window_focus_callback(GLFWwindow *window, int focused);
 };
-
-#include "arena.h"
-#include "input.h"
 
 typedef void (__cdecl *Update_And_Render_Ptr)(Memory_Arena *, Input_State *);
 
@@ -103,6 +107,7 @@ u8 *win32_read_entire_file(char *file_name, u32 *bytes_read_out) {
         // Should the os use the memory allocated to the application instead of the heap?
         u32 file_size = GetFileSize(file_handle, 0);
         result = (u8 *)malloc(file_size);
+        memset(result, 0, file_size);
         
         DWORD bytes_read = 0;
         BOOL read_status = ReadFile(file_handle, result, file_size, &bytes_read, 0);

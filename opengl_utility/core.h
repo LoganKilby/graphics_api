@@ -103,38 +103,33 @@ static void gl_utility_init(GL_Utility_Context *context) {
     gl_element_buffer_3f2f(&context->rect_3f2f, rect_indices, countof(rect_indices));
     gl_array_buffer_3f(&context->cube_3f);
     
-    GLuint shape_vert = gl_compile_shader(global_gl_shape_vert, 0, GL_VERTEX_SHADER);
-    GLuint mvp_static_color_vert = gl_compile_shader(global_gl_mvp_static_color_vert, 0, GL_VERTEX_SHADER);
-    GLuint texture_vert = gl_compile_shader(global_gl_texture_vert, 0, GL_VERTEX_SHADER);
-    GLuint texture_frag = gl_compile_shader(global_gl_texture_frag, 0, GL_FRAGMENT_SHADER);
-    GLuint shape_frag = gl_compile_shader(global_gl_shape_frag, 0, GL_FRAGMENT_SHADER);
-    
     GL_Utility_Compiled_Shaders sh = {};
-    sh.vert = shape_vert;
-    sh.frag = shape_frag;
+    
+    sh.vert = gl_compile_shader(global_gl_shape_vert, 0, GL_VERTEX_SHADER);
+    sh.frag = gl_compile_shader(global_gl_shape_frag, 0, GL_FRAGMENT_SHADER);
     context->program_static_color_v3f = gl_link_program(&sh);
     context->uniform_static_color_v3f_color = gl_get_uniform_location(context->program_static_color_v3f, "u_color");
+    glDeleteShader(sh.vert);
+    glDeleteShader(sh.frag);
     sh = {};
     
-    sh.vert = texture_vert;
-    sh.frag = texture_frag;
+    sh.vert = gl_compile_shader(global_gl_texture_vert, 0, GL_VERTEX_SHADER);
+    sh.frag = gl_compile_shader(global_gl_texture_frag, 0, GL_FRAGMENT_SHADER);
     context->program_texture_v3f_uv2f = gl_link_program(&sh);
+    glDeleteShader(sh.vert);
+    glDeleteShader(sh.frag);
     sh = {};
     
-    sh.vert = mvp_static_color_vert;
-    sh.frag = shape_frag;
+    sh.vert = gl_compile_shader(global_gl_mvp_static_color_vert, 0, GL_VERTEX_SHADER);
+    sh.frag = gl_compile_shader(global_gl_shape_frag, 0, GL_FRAGMENT_SHADER);
     context->program_transform_static_color_v3f = gl_link_program(&sh);
     context->uniform_transform_static_color_v3f_color = gl_get_uniform_location(context->program_transform_static_color_v3f, "u_color");
     context->uniform_transform_static_color_v3f_view = gl_get_uniform_location(context->program_transform_static_color_v3f, "u_view");
     context->uniform_transform_static_color_v3f_model = gl_get_uniform_location(context->program_transform_static_color_v3f, "u_model");
     context->uniform_transform_static_color_v3f_projection = gl_get_uniform_location(context->program_transform_static_color_v3f, "u_projection");
+    glDeleteShader(sh.vert);
+    glDeleteShader(sh.frag);
     sh = {};
-    
-    glDeleteShader(shape_vert);
-    glDeleteShader(mvp_static_color_vert);
-    glDeleteShader(texture_vert);
-    glDeleteShader(texture_frag);
-    glDeleteShader(shape_frag);
     
     context->awesome_face = gl_texture_2d("opengl_utility/textures/awesomeface.png");
     context->wall = gl_texture_2d("opengl_utility/textures/wall.jpg");

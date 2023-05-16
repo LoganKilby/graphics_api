@@ -4,19 +4,35 @@
 
 #include "win32_platform.h"
 #include "tweak.h"
-
 #include "camera.cpp"
 
 #include "app.h"
 #include "app.cpp"
 
+global Platform_Stuff Platform;
 
-global Platform_Stuff platform;
+void glfw_window_focus_callback(GLFWwindow* window, int focused)
+{
+    if (focused)
+    {
+        // The window gained input focus
+        double mouse_x, mouse_y;
+        glfwGetCursorPos(window, &mouse_x, &mouse_y);
+        Platform.mouse_diff = {};
+        Platform.mouse_pos = v2(mouse_x, mouse_y);
+    }
+    else
+    {
+        // The window lost input focus
+    }
+}
 
-void glfw_window_focus_callback(GLFWwindow* window, int focused);
+void glfw_scroll_callback(GLFWwindow *window, double x_offset, double y_offset) {
+    Platform.mouse_scroll_delta = v2(x_offset, y_offset);
+}
 
 int main() {
-    platform = {};
+    Platform = {};
     
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -26,18 +42,19 @@ int main() {
     
     {
         TIMED_BLOCK;
-        platform.window = glfwCreateWindow(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, "win32_glfw", 0, 0);
+        Platform.window = glfwCreateWindow(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, "win32_glfw", 0, 0);
     }
     
-    glfwMakeContextCurrent(platform.window);
-    glfwSetInputMode(platform.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwMakeContextCurrent(Platform.window);
+    glfwSetInputMode(Platform.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     
     GLenum glew_status = glewInit();
     if(glew_status != GLEW_OK) {
         fprintf(stderr, "Error: %s\n", glewGetErrorString(glew_status));
     }
     
-    glfwSetWindowFocusCallback(platform.window, glfw_window_focus_callback);
+    glfwSetWindowFocusCallback(Platform.window, glfw_window_focus_callback);
+    glfwSetScrollCallback(Platform.window, glfw_scroll_callback);
     //glfwSetWindowSizeCallback();
     //glfwSetWindowFramebufferSizeCallback();
     //glfwSetKeyCallback();
@@ -55,37 +72,22 @@ int main() {
 #endif
     
     double cursor_x, cursor_y;
-    glfwGetCursorPos(platform.window, &cursor_x, &cursor_y);
-    platform.mouse_pos = v2(cursor_x, cursor_y);
+    glfwGetCursorPos(Platform.window, &cursor_x, &cursor_y);
+    Platform.mouse_pos = v2(cursor_x, cursor_y);
     
     float last_frame_time = 0;
-    while(!glfwWindowShouldClose(platform.window)) {
+    while(!glfwWindowShouldClose(Platform.window)) {
         float frame_time = (float)glfwGetTime();
-        platform.delta_time = frame_time - last_frame_time;
+        Platform.delta_time = frame_time - last_frame_time;
         last_frame_time = frame_time;
         
-        glfwGetCursorPos(platform.window, &cursor_x, &cursor_y);
-        platform.mouse_diff = v2(cursor_x - platform.mouse_pos.x, platform.mouse_pos.y - cursor_y);
-        platform.mouse_pos = v2(cursor_x, cursor_y);
+        glfwGetCursorPos(Platform.window, &cursor_x, &cursor_y);
+        Platform.mouse_diff = v2(cursor_x - Platform.mouse_pos.x, Platform.mouse_pos.y - cursor_y);
+        Platform.mouse_pos = v2(cursor_x, cursor_y);
         
-        update_and_render(&app_memory, &platform);
-        glfwSwapBuffers(platform.window);
+        update_and_render(&app_memory, &Platform);
+        
+        glfwSwapBuffers(Platform.window);
         glfwPollEvents();
-    }
-}
-
-void glfw_window_focus_callback(GLFWwindow* window, int focused)
-{
-    if (focused)
-    {
-        // The window gained input focus
-        double mouse_x, mouse_y;
-        glfwGetCursorPos(window, &mouse_x, &mouse_y);
-        platform.mouse_diff = {};
-        platform.mouse_pos = v2(mouse_x, mouse_y);
-    }
-    else
-    {
-        // The window lost input focus
     }
 }

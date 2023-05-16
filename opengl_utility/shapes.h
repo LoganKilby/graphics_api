@@ -40,7 +40,7 @@ GLuint rect_indices[] = {
     1, 2, 3
 };
 
-static v5 cube_v3f_uv2f[] {
+static float cube_v3f_uv2f[] {
     -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
     0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
@@ -85,7 +85,7 @@ static v5 cube_v3f_uv2f[] {
 };
 
 
-static v5 cube_v3f[] {
+static float cube_v3f[] {
     -0.5f, -0.5f, -0.5f,
     0.5f, -0.5f, -0.5f,
     0.5f,  0.5f, -0.5f,
@@ -258,24 +258,26 @@ void gl_texture_rect(GL_Rect r, GL_Texture2D texture) {
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0); // NOTE(lmk): The indices define 6 vertices from 4
 }
 
-#if 0
-void gl_cube() {
-    glBindVertexArray(app_state->v3f_uv2f.vao);
-    glBindBuffer(GL_ARRAY_BUFFER, app_state->v3f_uv2f.vbo);
-    glBufferData(GL_ARRAY_BUFFER, cube_buffer_size, cube_vertices, GL_STATIC_DRAW);
-    glUseProgram(app_state->texture_mix_program);
-    tex0_location = gl_get_uniform_location(app_state->texture_mix_program, "texture0");
-    tex1_location = gl_get_uniform_location(app_state->texture_mix_program, "texture1");
-    transform_location = gl_get_uniform_location(app_state->texture_mix_program, "transform");
-    glUniform1i(tex0_location, 0);
-    glUniform1i(tex1_location, 1);
-    glUniformMatrix4fv(transform_location, 1, GL_FALSE, (f32 *)&transform);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, app_state->gl_utility_context.wall.id);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, app_state->gl_utility_context.awesome_face.id);
+
+void gl_cube(v3 position, v4 color, mat4 *projection, mat4 *view) {
+    GL_Array_Buffer *buf = &gl_utility_context_ptr->cube_3f;
+    glBindVertexArray(buf->vao);
+    glBindBuffer(GL_ARRAY_BUFFER, buf->vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(cube_v3f), cube_v3f, GL_STATIC_DRAW);
+    
+    int program = gl_utility_context_ptr->program_transform_static_color_v3f;
+    glUseProgram(program);
+    int view_location = gl_get_uniform_location(program, "u_view");
+    int projection_location = gl_get_uniform_location(program, "u_projection");
+    int model_location = gl_get_uniform_location(program, "u_model");
+    int color_location = gl_get_uniform_location(program, "u_color");
+    mat4 model = translate(mat4(1.0f), position);
+    glUniformMatrix4fv(projection_location, 1, GL_FALSE, (f32 *)projection);
+    glUniformMatrix4fv(view_location, 1, GL_FALSE, (f32 *)view);
+    glUniformMatrix4fv(model_location, 1, GL_FALSE, (f32 *)&model);
+    glUniform4f(color_location, color.r, color.g, color.g, color.a);
     glDrawArrays(GL_TRIANGLES, 0, 36);
 }
-#endif
+
 
 #endif //SHAPES_H

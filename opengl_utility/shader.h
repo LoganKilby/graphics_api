@@ -32,35 +32,40 @@ static char *global_gl_mvp_static_color_vert =
 
 #define MAX_INFO_LOG_LENGTH 1024
 
-
 static bool gl_check_compile_status(GLuint id) {
-    GLint compile_status;
-    glGetShaderiv(id, GL_COMPILE_STATUS, &compile_status);
-    bool result = (compile_status == GL_FALSE);
-    if(result) {
-        char info_log[MAX_INFO_LOG_LENGTH] = {};
-        int length;
-        glGetShaderiv(id, GL_INFO_LOG_LENGTH, &length);
-        glGetShaderInfoLog(id, sizeof(info_log), 0, info_log);
-        fprintf(stderr, "%s\n", info_log);
-    }
     
-    return result;
+    
+    return true;
 }
 
 
-static GLuint gl_compile_shader(char *source, GLint length, GLenum type) {
-    GLuint result = 0;
+static GLuint gl_compile_shader(char *source, GLint src_length, GLenum type) {
+    GLuint result = glCreateShader(type);
     
-    if(source) {
-        result = glCreateShader(type);
+    // NOTE(lmk): This was an annoying bug to find. When compiling null terminated source code, pass
+    // null as the length parameter to glShaderSource, NOT THE ADDRESS OF THE VARIABLE STORING NULL!
+    if(src_length == 0)
         glShaderSource(result, 1, &source, 0);
-        glCompileShader(result);
+    else
+        glShaderSource(result, 1, &source, &src_length);
+    
+    glCompileShader(result);
+    
+    GLint compile_status;
+    glGetShaderiv(result, GL_COMPILE_STATUS, &compile_status);
+    
+    if(compile_status == GL_FALSE) {
+        char info_log[MAX_INFO_LOG_LENGTH] = {};
         
-        if(gl_check_compile_status(result)) {
-            fprintf(stderr, "%s\n", source);
-            assert(0);
-        }
+        int suggested_length;
+        glGetShaderiv(result, GL_INFO_LOG_LENGTH, &suggested_length);
+        
+        GLsizei actual_length;
+        glGetShaderInfoLog(result, sizeof(info_log), &actual_length, info_log);
+        
+        fprintf(stderr, "%s\n", info_log);
+        assert(0);
+        return false;
     }
     
     return result;
@@ -82,12 +87,21 @@ static GLuint gl_link_program(GL_Utility_Compiled_Shaders *compiled_shader_ids) 
     
     GLint link_status;
     glGetProgramiv(result, GL_LINK_STATUS, &link_status);
-    if(link_status == 0) {
+    if(link_status == GL_FALSE) {
         char info_log[MAX_INFO_LOG_LENGTH] = {};
-        int length;
-        glGetShaderiv(result, GL_INFO_LOG_LENGTH, &length);
-        glGetProgramInfoLog(result, MAX_INFO_LOG_LENGTH, NULL, info_log);
+        
+        int suggested_length = 0;
+        glGetShaderiv(result, GL_INFO_LOG_LENGTH, &suggested_length);
+        
+        int actual_length = 0;
+        glGetProgramInfoLog(result, MAX_INFO_LOG_LENGTH, &actual_length, info_log);
+        
+        // Linking an invalid compiled shader id?
+        //if((suggested_length == 0) && (actual_length > 0))
+        //fprintf(stderr, "wtf");
+        
         fprintf(stderr, "%s\n", info_log);
+        assert(0);
     }
     
     // TODO(lmk): Can this be done before linking?

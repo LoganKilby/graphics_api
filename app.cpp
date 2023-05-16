@@ -90,7 +90,7 @@ void update_and_render(Memory_Arena *platform_memory, Platform_Stuff *platform) 
         app_state->yaw = -90.0f;
         
         // NOTE(lmk): follow camera... camera should rotate around player up vector?
-        app_state->player_pos = v3(0);
+        app_state->player_pos = v3(1, 0, 0);
         
         app_state->initialized = true;
     }
@@ -137,8 +137,5 @@ void update_and_render(Memory_Arena *platform_memory, Platform_Stuff *platform) 
     mat4 projection = perspective(radians(45.0f), (f32)screen_width / (f32)screen_height, 0.1f, 100.0f);
     
     learnoepngl_camera(app_state, &projection, &view);
-    
-    //
-    // Draw player
-    //
+    gl_cube(app_state->player_pos, v4(1, 0, 0, 1), &projection, &view);
 }
