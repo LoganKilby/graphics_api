@@ -87,6 +87,7 @@ void update_and_render(Memory_Arena *platform_memory, Platform_Stuff *platform) 
         
         app_state->camera.position = v3(0, 0, 3);
         app_state->camera.basis.front = v3(0, 0, -1);
+        basis_from_front(&app_state->camera.basis, app_state->camera.basis.front);
         app_state->yaw = -90.0f;
         
         // NOTE(lmk): follow camera... camera should rotate around player up vector?
@@ -136,6 +137,6 @@ void update_and_render(Memory_Arena *platform_memory, Platform_Stuff *platform) 
     mat4 view = lookAt(app_state->camera.position, app_state->camera.position + app_state->camera.basis.front, app_state->camera.basis.up);
     mat4 projection = perspective(radians(45.0f), (f32)screen_width / (f32)screen_height, 0.1f, 100.0f);
     
-    learnoepngl_camera(app_state, &projection, &view);
+    //learnoepngl_camera(app_state, &projection, &view);
     gl_cube(app_state->player_pos, v4(1, 0, 0, 1), &projection, &view);
 }

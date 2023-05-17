@@ -60,16 +60,16 @@ struct GL_Utility_Context {
 static GL_Utility_Context *gl_utility_context_ptr;
 
 
-#include "shapes.h"
-#include "shader.h"
-
-
 static void gl_get_viewport_dimensions(int *width, int *height) {
     GLint dim[4];
     glGetIntegerv(GL_VIEWPORT, dim);
     *width = dim[2];
     *height = dim[3];
 }
+
+
+#include "shapes.h"
+#include "shader.h"
 
 
 char *gl_get_error_string(GLenum err) {

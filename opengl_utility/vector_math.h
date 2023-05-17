@@ -70,6 +70,16 @@ v2 screen_to_ndc(v2 screen_pos, int screen_width, int screen_height) {
     return result;
 }
 
+f32 screen_x_to_ndc(f32 screen_pos, int screen_width) {
+    f32 result = ((screen_pos / screen_width)) * 2 - 1;;
+    return result;
+}
+
+f32 screen_y_to_ndc(f32 screen_pos, int screen_height) {
+    f32 result = ((screen_pos / screen_height)) * 2 - 1;
+    return result;
+}
+
 struct Basis {
     v3 front;
     v3 right;
