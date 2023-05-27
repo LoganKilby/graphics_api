@@ -1,3 +1,47 @@
+void update_active_camera(Application_State *app_state) {
+    switch(app_state->active_camera_type) {
+        case Fly: {
+            if(!zero_vector(Platform.mouse_diff)) 
+                rotate_fly_camera(&app_state->fly_camera, Platform.mouse_diff);
+            
+        } break;
+        
+        case Orbit: {
+            if(!zero_vector(Platform.mouse_diff)) 
+                rotate_orbit_camera(&app_state->orbit_camera, Platform.mouse_diff);
+            
+            if(Platform.mouse_scroll_delta) 
+                zoom_orbit_camera(&app_state->orbit_camera, Platform.mouse_scroll_delta);
+        } break;
+        
+        default: {
+            assert(0); // No active camera
+        }; 
+    }
+}
+
+
+mat4 get_active_camera_transform(Application_State *app_state) {
+    mat4 result;
+    switch(app_state->active_camera_type) {
+        case Fly: {
+            result = lookAt_fly_camera(&app_state->fly_camera);
+        } break;
+        
+        case Orbit: {
+            result = lookAt_orbit_camera(&app_state->orbit_camera, app_state->player_pos);
+        } break;
+        
+        default: {
+            result = mat4(1.0f);
+            assert(0); // No active camera
+        };
+    }
+    
+    return result;
+}
+
+
 void learnoepngl_camera(Application_State *app_state, mat4 *projection, mat4 *view) {
     glUseProgram(app_state->texture_mix_program);
     int proj_transform_location = gl_get_uniform_location(app_state->texture_mix_program, "u_projection");
@@ -47,7 +91,7 @@ void learnoepngl_camera(Application_State *app_state, mat4 *projection, mat4 *vi
 }
 
 
-void update_and_render(Memory_Arena *platform_memory, Platform_Stuff *platform) {
+void update_and_render(Memory_Arena *platform_memory) {
     Application_State *app_state = (Application_State *)platform_memory->base_address;
     assert(sizeof(Application_State) < APP_MEMORY_SIZE); // NOTE(lmk): Increase app memory size
     
@@ -57,9 +101,7 @@ void update_and_render(Memory_Arena *platform_memory, Platform_Stuff *platform) 
         scratch_arena = create_arena_local((u8 *)platform_memory->base_address + sizeof(Application_State), APP_MEMORY_SIZE - sizeof(Application_State));
         
         gl_utility_init(&app_state->gl_utility_context);
-        
         gl_vertex_buffer_3f3f(&app_state->test_vao, &app_state->test_vbo);
-        
         GL_Utility_Compiled_Shaders sh = {};
         
         u32 src_size;
@@ -75,27 +117,29 @@ void update_and_render(Memory_Arena *platform_memory, Platform_Stuff *platform) 
         sh.frag = gl_compile_shader(frag_source, src_size, GL_FRAGMENT_SHADER);
         app_state->texture_mix_program = gl_link_program(&sh);
         
-        glClearColor(0, 0, 0, 0);
-        
         gl_array_buffer_3f2f(&app_state->v3f_uv2f);
-        
         app_state->alexstrasza = gl_texture_2d("opengl_utility/textures/alexstrasza.jpg");
         
+        glClearColor(0, 0, 0, 0);
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         
-        app_state->camera.position = v3(0, 0, 3);
-        app_state->camera.basis.front = v3(0, 0, -1);
-        basis_from_front(&app_state->camera.basis, app_state->camera.basis.front);
-        app_state->yaw = -90.0f;
-        
-        // NOTE(lmk): follow camera... camera should rotate around player up vector?
         app_state->player_pos = v3(1, 0, 0);
         
+        //
+        // Camera
+        //
+        app_state->fly_camera.position = v3(0, 0, 3);
+        app_state->fly_camera.basis.front = v3(0, 0, -1);
+        basis_from_front(&app_state->fly_camera.basis, app_state->fly_camera.basis.front);
+        app_state->fly_camera.yaw = -90.0f;
+        app_state->fly_camera.look_speed = DEFAULT_FLY_CAMERA_LOOK_SPEED;
+        app_state->fly_camera.move_speed = DEFAULT_FLY_CAMERA_MOVE_SPEED;
         app_state->orbit_camera.radius = 10;
-        v3 orbit_pos = orbit_camera_eye(&app_state->orbit_camera, app_state->player_pos);
-        basis_from_front(&app_state->orbit_camera.basis, normalize(app_state->player_pos - orbit_pos));
+        app_state->orbit_camera.look_speed = DEFAULT_ORBIT_CAMERA_LOOK_SPEED;
+        
+        app_state->active_camera_type = Orbit;
         
         app_state->initialized = true;
     }
@@ -109,55 +153,10 @@ void update_and_render(Memory_Arena *platform_memory, Platform_Stuff *platform) 
     int screen_height = 600;
     int screen_height_half = screen_height / 2;
     
-    v3 world_up = v3(0, 1, 0);
+    update_active_camera(app_state);
     
-    if(!zero_vector(platform->mouse_diff)) {
-        f32 adjusted_mouse_diff_x = platform->mouse_diff.x * MOUSE_SENSITIVITY;
-        f32 adjusted_mouse_diff_y = platform->mouse_diff.y * MOUSE_SENSITIVITY;
-        
-        app_state->yaw += adjusted_mouse_diff_x;
-        app_state->pitch += adjusted_mouse_diff_y;
-        app_state->pitch = clamp(app_state->pitch, -89.0f, 89.0f);
-        
-        v3 new_camera_front = app_state->camera.basis.front;
-        new_camera_front.x = cos(radians(app_state->yaw)) * cos(radians(app_state->pitch));
-        new_camera_front.y = sin(radians(app_state->pitch));
-        new_camera_front.z = sin(radians(app_state->yaw)) * cos(radians(app_state->pitch));
-        new_camera_front = normalize(new_camera_front);
-        basis_from_front(&app_state->camera.basis, new_camera_front);
-        
-        rotate_orbit_camera_azimuth(&app_state->orbit_camera, radians(adjusted_mouse_diff_x));
-        rotate_orbit_camera_polar(&app_state->orbit_camera, radians(-adjusted_mouse_diff_y));
-        //v3 orbit_pos = orbit_camera_eye(&app_state->orbit_camera, app_state->player_pos);
-        //basis_from_front(&app_state->orbit_camera.basis, normalize(app_state->player_pos - orbit_pos));
-    }
-    
-    if(platform->mouse_scroll_delta) {
-        app_state->orbit_camera.radius -= platform->mouse_scroll_delta;
-    }
-    
-    v3 camera_move = v3(0);
-    if(glfwGetKey(platform->window, GLFW_KEY_W) == GLFW_PRESS)
-        camera_move += app_state->camera.basis.front;
-    if(glfwGetKey(platform->window, GLFW_KEY_S) == GLFW_PRESS)
-        camera_move -= app_state->camera.basis.front;
-    if(glfwGetKey(platform->window, GLFW_KEY_A) == GLFW_PRESS)
-        camera_move -= normalize(cross(app_state->camera.basis.front, app_state->camera.basis.up));
-    if(glfwGetKey(platform->window, GLFW_KEY_D) == GLFW_PRESS)
-        camera_move += normalize(cross(app_state->camera.basis.front, app_state->camera.basis.up));
-    
-    if(!zero_vector(camera_move))
-        app_state->camera.position += normalize(camera_move) * CAMERA_SPEED * platform->delta_time;
-    
-    mat4 view = lookAt(app_state->camera.position, app_state->camera.position + app_state->camera.basis.front, UP);
-    
-    v3 orbit_pos = orbit_camera_eye(&app_state->orbit_camera, app_state->player_pos);
-    basis_from_front(&app_state->orbit_camera.basis, normalize(app_state->player_pos - orbit_pos));
-    
-    Basis *orbit_basis = &app_state->orbit_camera.basis;
-    view = lookAt(orbit_pos, app_state->player_pos, UP);
+    mat4 view = get_active_camera_transform(app_state);
     mat4 projection = perspective(radians(45.0f), (f32)screen_width / (f32)screen_height, 0.1f, 100.0f);
-    
     learnoepngl_camera(app_state, &projection, &view);
     gl_cube(app_state->player_pos, v4(1, 0, 0, 1), &projection, &view);
 }

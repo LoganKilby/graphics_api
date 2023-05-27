@@ -3,13 +3,13 @@
 #include "D:\Library\glm\glm\gtc\matrix_transform.hpp"
 
 #include "win32_platform.h"
+global Platform_Stuff Platform;
+
 #include "tweak.h"
 #include "camera.cpp"
 
 #include "app.h"
 #include "app.cpp"
-
-global Platform_Stuff Platform;
 
 void glfw_window_focus_callback(GLFWwindow* window, int focused)
 {
@@ -82,7 +82,7 @@ int main() {
         Platform.mouse_diff = v2(cursor_x - Platform.mouse_pos.x, Platform.mouse_pos.y - cursor_y);
         Platform.mouse_pos = v2(cursor_x, cursor_y);
         
-        update_and_render(&app_memory, &Platform);
+        update_and_render(&app_memory);
         
         glfwSwapBuffers(Platform.window);
         

@@ -19,11 +19,9 @@ struct Application_State {
     GL_Array_Buffer v3f_uv2f;
     GL_Texture2D alexstrasza;
     
-    Camera_Orientation camera;
+    Camera_Type active_camera_type;
+    Fly_Camera_Orientation fly_camera;
     Orbit_Camera_Orientation orbit_camera;
-    
-    f32 yaw;
-    f32 pitch;
     
     v3 player_pos;
 };
