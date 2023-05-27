@@ -23,10 +23,7 @@ void rotate_orbit_camera_azimuth(Orbit_Camera_Orientation *camera, f32 radians) 
 
 void rotate_orbit_camera_polar(Orbit_Camera_Orientation *camera, f32 radians) {
     camera->polar += radians;
-    //camera->polar = clamp(camera->polar, -HALF_CIRCLE + EPSILON, HALF_CIRCLE - EPSILON);
-    if(camera->polar > MAX_POLAR_ROTATION) camera->polar = MAX_POLAR_ROTATION;
-    if(camera->polar < -MAX_POLAR_ROTATION) camera->polar = -MAX_POLAR_ROTATION;
-    printf("%f, %f\n", MAX_POLAR_ROTATION, camera->polar);
+    camera->polar = clamp(camera->polar, -MAX_POLAR_ROTATION, MAX_POLAR_ROTATION);
 }
 
 

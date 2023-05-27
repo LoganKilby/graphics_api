@@ -28,7 +28,8 @@ void glfw_window_focus_callback(GLFWwindow* window, int focused)
 }
 
 void glfw_scroll_callback(GLFWwindow *window, double x_offset, double y_offset) {
-    Platform.mouse_scroll_delta = v2(x_offset, y_offset);
+    // TODO(lmk): event?
+    Platform.mouse_scroll_delta = (f32)y_offset;
 }
 
 int main() {
@@ -59,10 +60,6 @@ int main() {
     //glfwSetWindowFramebufferSizeCallback();
     //glfwSetKeyCallback();
     
-    //HINSTANCE dll_handle;
-    //Update_And_Render_Ptr update_and_render;
-    //load_app_dll(&dll_handle, &update_and_render);
-    
     Memory_Arena app_memory = {};
     app_memory.size = APP_MEMORY_SIZE;
     app_memory.base_address = VirtualAlloc(0, sizeof(Application_State), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
@@ -88,6 +85,8 @@ int main() {
         update_and_render(&app_memory, &Platform);
         
         glfwSwapBuffers(Platform.window);
+        
+        Platform.mouse_scroll_delta = 0;
         glfwPollEvents();
     }
 }

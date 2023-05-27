@@ -49,7 +49,7 @@ struct Platform_Stuff {
     float delta_time;
     v2 mouse_pos;
     v2 mouse_diff;
-    v2 mouse_scroll_delta;
+    f32 mouse_scroll_delta;
     
     void glfw_mouse_scroll_callback(GLFWwindow *window, double x_offset, double y_offset);
     void glfw_window_focus_callback(GLFWwindow *window, int focused);
