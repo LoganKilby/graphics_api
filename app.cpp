@@ -93,6 +93,10 @@ void update_and_render(Memory_Arena *platform_memory, Platform_Stuff *platform) 
         // NOTE(lmk): follow camera... camera should rotate around player up vector?
         app_state->player_pos = v3(1, 0, 0);
         
+        app_state->orbit_camera.radius = 10;
+        v3 orbit_pos = orbit_camera_eye(&app_state->orbit_camera, app_state->player_pos);
+        basis_from_front(&app_state->orbit_camera.basis, normalize(app_state->player_pos - orbit_pos));
+        
         app_state->initialized = true;
     }
     
@@ -108,8 +112,13 @@ void update_and_render(Memory_Arena *platform_memory, Platform_Stuff *platform) 
     v3 world_up = v3(0, 1, 0);
     
     if(!zero_vector(platform->mouse_diff)) {
-        app_state->yaw += platform->mouse_diff.x * MOUSE_SENSITIVITY;
-        app_state->pitch += platform->mouse_diff.y * MOUSE_SENSITIVITY;
+        f32 adjusted_mouse_diff_x = platform->mouse_diff.x * MOUSE_SENSITIVITY;
+        f32 adjusted_mouse_diff_y = platform->mouse_diff.y * MOUSE_SENSITIVITY;
+        
+        //printf("%f\n", adjusted_mouse_diff_y);
+        
+        app_state->yaw += adjusted_mouse_diff_x;
+        app_state->pitch += adjusted_mouse_diff_y;
         app_state->pitch = clamp(app_state->pitch, -89.0f, 89.0f);
         
         v3 new_camera_front = app_state->camera.basis.front;
@@ -117,8 +126,12 @@ void update_and_render(Memory_Arena *platform_memory, Platform_Stuff *platform) 
         new_camera_front.y = sin(radians(app_state->pitch));
         new_camera_front.z = sin(radians(app_state->yaw)) * cos(radians(app_state->pitch));
         new_camera_front = normalize(new_camera_front);
-        
         basis_from_front(&app_state->camera.basis, new_camera_front);
+        
+        rotate_orbit_camera_azimuth(&app_state->orbit_camera, radians(adjusted_mouse_diff_x));
+        rotate_orbit_camera_polar(&app_state->orbit_camera, radians(adjusted_mouse_diff_y));
+        //v3 orbit_pos = orbit_camera_eye(&app_state->orbit_camera, app_state->player_pos);
+        //basis_from_front(&app_state->orbit_camera.basis, normalize(app_state->player_pos - orbit_pos));
     }
     
     v3 camera_move = v3(0);
@@ -134,9 +147,15 @@ void update_and_render(Memory_Arena *platform_memory, Platform_Stuff *platform) 
     if(!zero_vector(camera_move))
         app_state->camera.position += normalize(camera_move) * CAMERA_SPEED * platform->delta_time;
     
-    mat4 view = lookAt(app_state->camera.position, app_state->camera.position + app_state->camera.basis.front, app_state->camera.basis.up);
+    mat4 view = lookAt(app_state->camera.position, app_state->camera.position + app_state->camera.basis.front, UP);
+    
+    v3 orbit_pos = orbit_camera_eye(&app_state->orbit_camera, app_state->player_pos);
+    basis_from_front(&app_state->orbit_camera.basis, normalize(app_state->player_pos - orbit_pos));
+    
+    Basis *orbit_basis = &app_state->orbit_camera.basis;
+    view = lookAt(orbit_pos, app_state->player_pos, UP);
     mat4 projection = perspective(radians(45.0f), (f32)screen_width / (f32)screen_height, 0.1f, 100.0f);
     
-    //learnoepngl_camera(app_state, &projection, &view);
+    learnoepngl_camera(app_state, &projection, &view);
     gl_cube(app_state->player_pos, v4(1, 0, 0, 1), &projection, &view);
 }

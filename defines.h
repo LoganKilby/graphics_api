@@ -34,5 +34,10 @@ typedef float f32;
 #define megabytes(megs) megs * kilobytes(1024)
 #define gigabytes(gigs) gigs * megabytes(1024)
 #define countof(array) (sizeof(array) / sizeof(array[0]))
+#define EPSILON 0.001f
+#define FULL_CIRCLE 2.0f * PI
+#define QUARTER_CIRCLE (PI / 2.0f)
+#define MAX_POLAR_ROTATION (QUARTER_CIRCLE - EPSILON)
+#define UP v3(0, 1, 0)
 
 #endif //DEFINES_H

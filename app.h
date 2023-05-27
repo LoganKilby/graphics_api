@@ -20,6 +20,7 @@ struct Application_State {
     GL_Texture2D alexstrasza;
     
     Camera_Orientation camera;
+    Orbit_Camera_Orientation orbit_camera;
     
     f32 yaw;
     f32 pitch;

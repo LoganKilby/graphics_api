@@ -8,7 +8,7 @@ using namespace glm;
 typedef vec2 v2;
 typedef vec3 v3;
 typedef vec4 v4;
-#define M_PI glm::pi<float>()
+#define PI glm::pi<float>()
 #define radians(d) glm::radians<float>(d)
 #else
 #erorr GLM should be included
@@ -40,8 +40,6 @@ union v4 {
 };
 
 #endif
-
-#define EPSILON 0.0006
 
 inline bool zero_vector(v3 v) {
     bool result = 
@@ -91,7 +89,5 @@ void basis_from_front(Basis *basis, v3 front, v3 up = v3(0, 1, 0)) {
     basis->right = normalize(cross(basis->front, up));
     basis->up = normalize(cross(basis->right, basis->front));
 }
-
-
 
 #endif //VECTOR_MATH_H

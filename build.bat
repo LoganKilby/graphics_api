@@ -10,7 +10,7 @@ set glew_include_dir=%code%\glew
 
 set libs=User32.lib Opengl32.lib Gdi32.lib
 
-set opts=-DDEBUG -FC -GR- -EHa- -nologo -Od -Zo -Oi -fp:fast -fp:except- -Gm- -GR- -EHa- -WX -W4 -wd4201 -wd4100 -wd4189 -wd4505 -wd4127 -FC -Z7 /I%glew_include_dir% /I%shader_dir%
+set opts=-DDEBUG -D_CRT_SECURE_NO_WARNINGS -FC -GR- -EHa- -nologo -Od -Zo -Oi -fp:fast -fp:except- -Gm- -GR- -EHa- -WX -W4 -wd4201 -wd4100 -wd4189 -wd4505 -wd4127 -FC -Z7 /I%glew_include_dir% /I%shader_dir%
 
 pushd build
 
