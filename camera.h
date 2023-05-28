@@ -11,16 +11,14 @@ enum Camera_Type {
 
 
 // NOTE(lmk): Position is relative to target
-struct Orbit_Camera_Orientation {
-    f32 radius;
-    f32 azimuth;
-    f32 polar;
+struct Orbit_Camera {
+    Spherical_Coordinates position;
     f32 look_speed;
     f32 zoom_speed;
 };
 
 
-struct Fly_Camera_Orientation {
+struct Fly_Camera {
     Basis basis;
     v3 position;
     f32 move_speed;
@@ -28,6 +26,5 @@ struct Fly_Camera_Orientation {
     f32 yaw;
     f32 pitch;
 };
-
 
 #endif //CAMERA_H

@@ -39,7 +39,13 @@ union v4 {
     
 };
 
-#endif
+#endif //GLM_VERSION
+
+struct Spherical_Coordinates {
+    f32 radius;
+    f32 azimuth;
+    f32 polar;
+};
 
 inline bool zero_vector(v3 v) {
     bool result = 
@@ -58,6 +64,31 @@ inline bool zero_vector(v2 v) {
     return result;
 }
 
+inline f32 length(v3 a) {
+    f32 result = sqrtf(dot(a, a));
+    
+    return result;
+}
+
+
+inline f32 length(v2 a) {
+    f32 result = sqrtf(dot(a, a));
+    
+    return result;
+}
+
+
+void cartesian_to_spherical(v3 pos, f32 *_radius, f32 *_azimuth, f32 *_polar) {
+    f32 radius = length(pos);
+    f32 azimuth = atan(pos.y / pos.z);
+    f32 polar = atan(length(v2(pos.x, pos.y)) / pos.z);
+    
+    *_radius = radius;
+    *_azimuth = azimuth;
+    *_polar = polar;
+}
+
+
 // NOTE(lmk): glm ortho -- (left, right, bottom, top, near, far)
 // NOTE(lmk): glm lookAt -- (eye, center, up)
 
@@ -69,7 +100,7 @@ v2 screen_to_ndc(v2 screen_pos, int screen_width, int screen_height) {
 }
 
 f32 screen_x_to_ndc(f32 screen_pos, int screen_width) {
-    f32 result = ((screen_pos / screen_width)) * 2 - 1;;
+    f32 result = ((screen_pos / screen_width)) * 2 - 1;
     return result;
 }
 

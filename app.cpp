@@ -74,7 +74,7 @@ void learnoepngl_camera(Application_State *app_state, mat4 *projection, mat4 *vi
         glm::vec3( 1.3f, -2.0f, -2.5f),  
         glm::vec3( 1.5f,  2.0f, -2.5f), 
         glm::vec3( 1.5f,  0.2f, -1.5f), 
-        glm::vec3(-1.3f,  1.0f, -1.5f)  
+        glm::vec3(-1.3f,  1.0f, -1.5f)
     };
     glBindVertexArray(app_state->v3f_uv2f.vao);
     glBindBuffer(GL_ARRAY_BUFFER, app_state->v3f_uv2f.vbo);
@@ -130,15 +130,18 @@ void update_and_render(Memory_Arena *platform_memory) {
         //
         // Camera
         //
-        app_state->fly_camera.position = v3(0, 0, 3);
+        app_state->fly_camera.position = DEFAULT_CAMERA_POS;
         app_state->fly_camera.basis.front = v3(0, 0, -1);
         basis_from_front(&app_state->fly_camera.basis, app_state->fly_camera.basis.front);
         app_state->fly_camera.yaw = -90.0f;
         app_state->fly_camera.look_speed = DEFAULT_FLY_CAMERA_LOOK_SPEED;
         app_state->fly_camera.move_speed = DEFAULT_FLY_CAMERA_MOVE_SPEED;
-        app_state->orbit_camera.radius = 10;
         app_state->orbit_camera.look_speed = DEFAULT_ORBIT_CAMERA_LOOK_SPEED;
+        app_state->orbit_camera.zoom_speed = DEFAULT_ORBIT_CAMERA_ZOOM_SPEED;
         
+        v3 player_front = v3(0, 0, -1);
+        //Spherical_Coordinates orbit_pos = orbit_camera_spherical_position(app_state->fly_camera.position, app_state->player_pos);
+        attach_orbit_camera(&app_state->orbit_camera, app_state->player_pos, player_front, 10);
         app_state->active_camera_type = Orbit;
         
         app_state->initialized = true;

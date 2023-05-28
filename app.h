@@ -20,8 +20,8 @@ struct Application_State {
     GL_Texture2D alexstrasza;
     
     Camera_Type active_camera_type;
-    Fly_Camera_Orientation fly_camera;
-    Orbit_Camera_Orientation orbit_camera;
+    Fly_Camera fly_camera;
+    Orbit_Camera orbit_camera;
     
     v3 player_pos;
 };
