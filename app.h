@@ -6,6 +6,13 @@
 #define APP_MEMORY_SIZE kilobytes(16)
 #define WORLD_UP v3(0, 1, 0)
 
+
+struct Entity {
+    v3 position;
+    Basis basis;
+};
+
+
 struct Application_State {
     bool initialized;
     
@@ -24,6 +31,9 @@ struct Application_State {
     Orbit_Camera orbit_camera;
     
     v3 player_pos;
+    f32 player_speed;
+    
+    Entity player;
 };
 
 #endif //APP_H

@@ -1,3 +1,19 @@
+void update_player_pos(v3 *player_pos, f32 speed) {
+    v3 move = {};
+    
+    if(glfwGetKey(Platform.window, GLFW_KEY_W) == GLFW_PRESS)
+        --move.z;
+    if(glfwGetKey(Platform.window, GLFW_KEY_S) == GLFW_PRESS)
+        ++move.z;
+    if(glfwGetKey(Platform.window, GLFW_KEY_A) == GLFW_PRESS)
+        --move.x;
+    if(glfwGetKey(Platform.window, GLFW_KEY_D) == GLFW_PRESS)
+        ++move.x;
+    
+    if(!zero_vector(move))
+        *player_pos += normalize(move) * speed * Platform.delta_time;
+}
+
 void update_active_camera(Application_State *app_state) {
     switch(app_state->active_camera_type) {
         case Fly: {
@@ -125,8 +141,6 @@ void update_and_render(Memory_Arena *platform_memory) {
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         
-        app_state->player_pos = v3(1, 0, 0);
-        
         //
         // Camera
         //
@@ -139,6 +153,8 @@ void update_and_render(Memory_Arena *platform_memory) {
         app_state->orbit_camera.look_speed = DEFAULT_ORBIT_CAMERA_LOOK_SPEED;
         app_state->orbit_camera.zoom_speed = DEFAULT_ORBIT_CAMERA_ZOOM_SPEED;
         
+        app_state->player_pos = v3(0, 0, 0);
+        app_state->player_speed = DEFAULT_PLAYER_SPEED;
         v3 player_front = v3(0, 0, -1);
         //Spherical_Coordinates orbit_pos = orbit_camera_spherical_position(app_state->fly_camera.position, app_state->player_pos);
         attach_orbit_camera(&app_state->orbit_camera, app_state->player_pos, player_front, 10);
@@ -156,6 +172,7 @@ void update_and_render(Memory_Arena *platform_memory) {
     int screen_height = 600;
     int screen_height_half = screen_height / 2;
     
+    update_player_pos(&app_state->player_pos, app_state->player_speed);
     update_active_camera(app_state);
     
     mat4 view = get_active_camera_transform(app_state);
