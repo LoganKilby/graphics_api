@@ -1,4 +1,32 @@
+void process_game_input(Application_State *app_state, Input_Event_List *list) {
+    Input_Event event;
+    while(get_next_input_event(list, &event)) {
+        switch(event.device) {
+            case Mouse: {
+                if(event.key == GLFW_MOUSE_BUTTON_LEFT) {
+                    if(event.action == GLFW_PRESS) {
+                        glfwSetInputMode(Platform.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+                    } else {
+                        glfwSetInputMode(Platform.window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                    }
+                } 
+            } break;
+            
+            case Keyboard: {
+                
+            } break;
+            
+            default: {
+                assert(0);
+            } break;
+        }
+    }
+}
 
+
+void process_editor_input() {
+    
+}
 
 
 void update_player_pos(v3 *player_pos, f32 speed) {
@@ -21,17 +49,17 @@ void update_player_pos(v3 *player_pos, f32 speed) {
 void update_active_camera(Application_State *app_state) {
     switch(app_state->active_camera_type) {
         case Fly: {
-            if(!zero_vector(Platform.mouse_diff)) 
-                rotate_fly_camera(&app_state->fly_camera, Platform.mouse_diff);
+            if(!zero_vector(Platform.input_state.mouse_diff)) 
+                rotate_fly_camera(&app_state->fly_camera, Platform.input_state.mouse_diff);
             
         } break;
         
         case Orbit: {
-            if(!zero_vector(Platform.mouse_diff)) 
-                rotate_orbit_camera(&app_state->orbit_camera, Platform.mouse_diff);
+            if(!zero_vector(Platform.input_state.mouse_diff)) 
+                rotate_orbit_camera(&app_state->orbit_camera, Platform.input_state.mouse_diff);
             
-            if(Platform.mouse_scroll_delta) 
-                zoom_orbit_camera(&app_state->orbit_camera, Platform.mouse_scroll_delta);
+            if(Platform.input_state.mouse_scroll_delta) 
+                zoom_orbit_camera(&app_state->orbit_camera, Platform.input_state.mouse_scroll_delta);
         } break;
         
         default: {
@@ -167,29 +195,48 @@ void update_and_render(Memory_Arena *platform_memory) {
         //
         // Editor
         //
-        app_state->editor.state->x_axis_color = v4(0, 0, 1, 1);
-        app_state->editor.state->y_axis_color = v4(0, 1, 0, 1);
-        app_state->editor.state->z_axis_color = v4(1, 0, 0, 1);
+        app_state->editor.x_axis_color = v4(0, 0, 1, 1);
+        app_state->editor.y_axis_color = v4(0, 1, 0, 1);
+        app_state->editor.z_axis_color = v4(1, 0, 0, 1);
         app_state->editor.hide_key = GLFW_KEY_GRAVE_ACCENT;
+        app_state->editor.active = 0;
         
         app_state->initialized = true;
     }
     
     scratch_arena.allocated = 0;
     
+    if(app_state->editor.active) {
+        // process editor input
+    } else {
+        // process game input
+        process_game_input(app_state, &Platform.input_state.event_list);
+        update_player_pos(&app_state->player_pos, app_state->player_speed);
+    }
     
-    update_player_pos(&app_state->player_pos, app_state->player_speed);
-    update_active_camera(app_state);
+    //update_active_camera(app_state);
+    
+    if(glfwGetMouseButton(Platform.window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+        if(!zero_vector(Platform.input_state.mouse_diff)) 
+            rotate_orbit_camera(&app_state->orbit_camera, Platform.input_state.mouse_diff);
+        
+        if(Platform.input_state.mouse_scroll_delta) 
+            zoom_orbit_camera(&app_state->orbit_camera, Platform.input_state.mouse_scroll_delta);
+    }
     
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     
-    int screen_width = 800;
-    int screen_width_half = screen_width / 2;
-    int screen_height = 600;
-    int screen_height_half = screen_height / 2;
+    ImGui_BeginFrame();
+    bool show_demo_window;
+    ImGui::ShowDemoWindow(&show_demo_window);
+    ImGui_EndFrame();
     
     mat4 view = get_active_camera_transform(app_state);
-    mat4 projection = perspective(radians(45.0f), (f32)screen_width / (f32)screen_height, 0.1f, 100.0f);
+    
+    // TODO(lmk): Update projection only on viewport resize
+    GL_Viewport viewport;
+    glGetIntegerv(GL_VIEWPORT, (int *)&viewport);
+    mat4 projection = perspective(radians(45.0f), (f32)viewport.width / (f32)viewport.height, 0.1f, 100.0f);
     
     app_state->gl_utility_context.projection_3d = projection;
     app_state->gl_utility_context.view_3d = view;
@@ -203,9 +250,4 @@ void update_and_render(Memory_Arena *platform_memory) {
     gl_line(origin, v3(0, 1, 0), app_state->editor.y_axis_color);
     gl_line(origin, v3(0, 0, 1), app_state->editor.z_axis_color);
     glEnable(GL_DEPTH_TEST);
-    
-    ImGui_BeginFrame();
-    bool show_demo_window;
-    ImGui::ShowDemoWindow(&show_demo_window);
-    ImGui_EndFrame();
 }

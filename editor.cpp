@@ -1,7 +1,8 @@
 struct Editor_State {
-    v3 x_axis_color;
-    v3 y_axis_color;
-    v3 z_axis_color;
+    v4 x_axis_color;
+    v4 y_axis_color;
+    v4 z_axis_color;
     
     int hide_key; // keybind
+    int active;
 };

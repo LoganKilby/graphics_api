@@ -31,6 +31,14 @@ struct GL_Shape_Context {
 };
 
 
+struct GL_Viewport {
+    int x;
+    int y;
+    int width;
+    int height;
+};
+
+
 struct GL_Utility_Context {
     GLuint initialized;
     

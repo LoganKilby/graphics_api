@@ -3,17 +3,30 @@
 #ifndef INPUT_H
 #define INPUT_H
 
+enum Input_Device_Type {
+    Mouse,
+    Keyboard
+};
+
 struct Input_Event {
     int key;
     int scancode;
     int action;
     int mods;
+    Input_Device_Type device;
 };
 
 #define MAX_BUFFERED_INPUT_EVENTS 15
 struct Input_Event_List {
     u32 count;
     Input_Event events[MAX_BUFFERED_INPUT_EVENTS];
+};
+
+struct Input_State {
+    v2 mouse_pos;
+    v2 mouse_diff;
+    f32 mouse_scroll_delta;
+    Input_Event_List event_list;
 };
 
 internal bool push_input_event(Input_Event_List *event_list, Input_Event event) {
@@ -24,7 +37,7 @@ internal bool push_input_event(Input_Event_List *event_list, Input_Event event) 
         // Discarding the oldest input event, then adding to the front of the queue
         memcpy(event_list->events, &event_list->events[1], sizeof(Input_Event) * (countof(event_list->events) - 1));
         event_list->events[0] = event;
-        assert(0); // an event was discarded...
+        log("Input event discarded\n");
         return true;
     }
 }
@@ -34,10 +47,13 @@ internal bool get_next_input_event(Input_Event_List *list, Input_Event *event) {
     {
         *event = list->events[0];
         memcpy(list->events, &list->events[1], sizeof(Input_Event) * (countof(list->events) - 1));
+        list->count -= 1;
+        return true;
     }
     else
     {
         event = 0;
+        return false;
     }
 }
 

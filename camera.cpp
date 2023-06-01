@@ -45,8 +45,8 @@ Spherical_Coordinates orbit_camera_spherical_position(v3 camera_pos, v3 target_p
 
 
 void rotate_orbit_camera(Orbit_Camera *camera, v2 mouse_delta) {
-    f32 adjusted_mouse_diff_x = Platform.mouse_diff.x * camera->look_speed * Platform.delta_time;
-    f32 adjusted_mouse_diff_y = Platform.mouse_diff.y * camera->look_speed * Platform.delta_time;
+    f32 adjusted_mouse_diff_x = Platform.input_state.mouse_diff.x * camera->look_speed * Platform.delta_time;
+    f32 adjusted_mouse_diff_y = Platform.input_state.mouse_diff.y * camera->look_speed * Platform.delta_time;
     rotate_orbit_camera_azimuth(camera, radians(adjusted_mouse_diff_x));
     rotate_orbit_camera_polar(camera, radians(-adjusted_mouse_diff_y));
 }

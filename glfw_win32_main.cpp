@@ -12,11 +12,7 @@
 struct Platform_Stuff {
     GLFWwindow *window;
     float delta_time;
-    v2 mouse_pos;
-    v2 mouse_diff;
-    f32 mouse_scroll_delta;
-    
-    Input_Event_List event_list;
+    Input_State input_state;
 } global Platform;
 
 
@@ -39,8 +35,8 @@ void glfw_window_focus_callback(GLFWwindow* window, int focused)
         // The window gained input focus
         double mouse_x, mouse_y;
         glfwGetCursorPos(window, &mouse_x, &mouse_y);
-        Platform.mouse_diff = {};
-        Platform.mouse_pos = v2(mouse_x, mouse_y);
+        Platform.input_state.mouse_diff = {};
+        Platform.input_state.mouse_pos = v2(mouse_x, mouse_y);
     }
     else
     {
@@ -48,10 +44,12 @@ void glfw_window_focus_callback(GLFWwindow* window, int focused)
     }
 }
 
+
 void glfw_scroll_callback(GLFWwindow *window, double x_offset, double y_offset) {
     // TODO(lmk): event?
-    Platform.mouse_scroll_delta = (f32)y_offset;
+    Platform.input_state.mouse_scroll_delta = (f32)y_offset;
 }
+
 
 void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
@@ -60,7 +58,18 @@ void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action, in
     event.scancode = scancode;
     event.action = action;
     event.mods = mods;
-    push_input_event(&Platform.event_list, event);
+    event.device = Input_Device_Type::Keyboard;
+    push_input_event(&Platform.input_state.event_list, event);
+}
+
+
+void glfw_mouse_button_callback(GLFWwindow *window, int button, int action, int mods) {
+    Input_Event event = {};
+    event.key = button;
+    event.action = action;
+    event.mods = mods;
+    event.device = Input_Device_Type::Mouse;
+    push_input_event(&Platform.input_state.event_list, event);
 }
 
 int main() {
@@ -88,8 +97,6 @@ int main() {
     ImGui_ImplGlfw_InitForOpenGL(Platform.window, true);
     ImGui_ImplOpenGL3_Init("#version 130");
     
-    glfwSetInputMode(Platform.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    
     GLenum glew_status = glewInit();
     if(glew_status != GLEW_OK) 
         fprintf(stderr, "Error: %s\n", glewGetErrorString(glew_status));
@@ -97,6 +104,7 @@ int main() {
     glfwSetWindowFocusCallback(Platform.window, glfw_window_focus_callback);
     glfwSetScrollCallback(Platform.window, glfw_scroll_callback);
     glfwSetKeyCallback(Platform.window, glfw_key_callback);
+    glfwSetMouseButtonCallback(Platform.window, glfw_mouse_button_callback);
     //glfwSetWindowSizeCallback();
     //glfwSetWindowFramebufferSizeCallback();
     
@@ -111,7 +119,7 @@ int main() {
     
     double cursor_x, cursor_y;
     glfwGetCursorPos(Platform.window, &cursor_x, &cursor_y);
-    Platform.mouse_pos = v2(cursor_x, cursor_y);
+    Platform.input_state.mouse_pos = v2(cursor_x, cursor_y);
     
     float last_frame_time = 0;
     while(!glfwWindowShouldClose(Platform.window)) {
@@ -120,14 +128,14 @@ int main() {
         last_frame_time = frame_time;
         
         glfwGetCursorPos(Platform.window, &cursor_x, &cursor_y);
-        Platform.mouse_diff = v2(cursor_x - Platform.mouse_pos.x, Platform.mouse_pos.y - cursor_y);
-        Platform.mouse_pos = v2(cursor_x, cursor_y);
+        Platform.input_state.mouse_diff = v2(cursor_x - Platform.input_state.mouse_pos.x, Platform.input_state.mouse_pos.y - cursor_y);
+        Platform.input_state.mouse_pos = v2(cursor_x, cursor_y);
         
         update_and_render(&app_memory);
         
         glfwSwapBuffers(Platform.window);
         
-        Platform.mouse_scroll_delta = 0;
+        Platform.input_state.mouse_scroll_delta = 0;
         glfwPollEvents();
     }
 }
