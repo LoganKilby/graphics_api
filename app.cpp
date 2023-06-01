@@ -2,6 +2,7 @@ void process_game_input(Application_State *app_state, Input_Event_List *list) {
     Input_Event event;
     while(get_next_input_event(list, &event)) {
         switch(event.device) {
+            
             case Mouse: {
                 if(event.key == GLFW_MOUSE_BUTTON_LEFT) {
                     if(event.action == GLFW_PRESS) {
@@ -12,8 +13,16 @@ void process_game_input(Application_State *app_state, Input_Event_List *list) {
                 } 
             } break;
             
+            
             case Keyboard: {
-                
+                switch(event.key) {
+                    case GLFW_KEY_GRAVE_ACCENT: {
+                        if(event.action == GLFW_PRESS) {
+                            // TODO(lmk): check when hovering over imgui ui
+                            app_state->editor.active ^= 1;
+                        }
+                    } break;
+                }
             } break;
             
             default: {
@@ -22,12 +31,6 @@ void process_game_input(Application_State *app_state, Input_Event_List *list) {
         }
     }
 }
-
-
-void process_editor_input() {
-    
-}
-
 
 void update_player_pos(v3 *player_pos, f32 speed) {
     v3 move = {};
@@ -199,24 +202,21 @@ void update_and_render(Memory_Arena *platform_memory) {
         app_state->editor.y_axis_color = v4(0, 1, 0, 1);
         app_state->editor.z_axis_color = v4(1, 0, 0, 1);
         app_state->editor.hide_key = GLFW_KEY_GRAVE_ACCENT;
-        app_state->editor.active = 0;
+        app_state->editor.active = 1;
         
         app_state->initialized = true;
     }
     
     scratch_arena.allocated = 0;
     
+    process_game_input(app_state, &Platform.input_state.event_list);
+    
     if(app_state->editor.active) {
-        // process editor input
     } else {
-        // process game input
-        process_game_input(app_state, &Platform.input_state.event_list);
         update_player_pos(&app_state->player_pos, app_state->player_speed);
     }
     
-    //update_active_camera(app_state);
-    
-    if(glfwGetMouseButton(Platform.window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+    if(is_button_pressed(GLFW_MOUSE_BUTTON_LEFT)) {
         if(!zero_vector(Platform.input_state.mouse_diff)) 
             rotate_orbit_camera(&app_state->orbit_camera, Platform.input_state.mouse_diff);
         
@@ -226,28 +226,36 @@ void update_and_render(Memory_Arena *platform_memory) {
     
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     
-    ImGui_BeginFrame();
-    bool show_demo_window;
-    ImGui::ShowDemoWindow(&show_demo_window);
-    ImGui_EndFrame();
-    
-    mat4 view = get_active_camera_transform(app_state);
-    
+    //
+    // Render game
+    //
     // TODO(lmk): Update projection only on viewport resize
     GL_Viewport viewport;
     glGetIntegerv(GL_VIEWPORT, (int *)&viewport);
     mat4 projection = perspective(radians(45.0f), (f32)viewport.width / (f32)viewport.height, 0.1f, 100.0f);
-    
+    mat4 view = get_active_camera_transform(app_state);
     app_state->gl_utility_context.projection_3d = projection;
     app_state->gl_utility_context.view_3d = view;
-    
     learnoepngl_camera(app_state, &projection, &view);
     gl_cube(app_state->player_pos, v4(1, 0, 0, 1));
     
-    glDisable(GL_DEPTH_TEST);
-    v3 origin(0,0,0);
-    gl_line(origin, v3(1, 0, 0), app_state->editor.x_axis_color);
-    gl_line(origin, v3(0, 1, 0), app_state->editor.y_axis_color);
-    gl_line(origin, v3(0, 0, 1), app_state->editor.z_axis_color);
-    glEnable(GL_DEPTH_TEST);
+    
+    //
+    // Render editor
+    // 
+    if(app_state->editor.active) {
+        ImGui_BeginFrame();
+        bool show_demo_window;
+        ImGui::ShowDemoWindow(&show_demo_window);
+        ImGui_EndFrame();
+        
+        assert(ImGui::IsAnyItemHovered());
+        
+        glDisable(GL_DEPTH_TEST);
+        v3 origin(0,0,0);
+        gl_line(origin, v3(1, 0, 0), app_state->editor.x_axis_color);
+        gl_line(origin, v3(0, 1, 0), app_state->editor.y_axis_color);
+        gl_line(origin, v3(0, 0, 1), app_state->editor.z_axis_color);
+        glEnable(GL_DEPTH_TEST);
+    }
 }
