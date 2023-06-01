@@ -1,3 +1,6 @@
+
+
+
 void update_player_pos(v3 *player_pos, f32 speed) {
     v3 move = {};
     
@@ -13,6 +16,7 @@ void update_player_pos(v3 *player_pos, f32 speed) {
     if(!zero_vector(move))
         *player_pos += normalize(move) * speed * Platform.delta_time;
 }
+
 
 void update_active_camera(Application_State *app_state) {
     switch(app_state->active_camera_type) {
@@ -109,7 +113,6 @@ void learnoepngl_camera(Application_State *app_state, mat4 *projection, mat4 *vi
 
 void update_and_render(Memory_Arena *platform_memory) {
     Application_State *app_state = (Application_State *)platform_memory->base_address;
-    assert(sizeof(Application_State) < APP_MEMORY_SIZE); // NOTE(lmk): Increase app memory size
     
     gl_utility_context_ptr = &app_state->gl_utility_context;
     
@@ -138,6 +141,7 @@ void update_and_render(Memory_Arena *platform_memory) {
         
         glClearColor(0, 0, 0, 0);
         glEnable(GL_DEPTH_TEST);
+        glEnable(GL_MULTISAMPLE);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         
@@ -160,11 +164,23 @@ void update_and_render(Memory_Arena *platform_memory) {
         attach_orbit_camera(&app_state->orbit_camera, app_state->player_pos, player_front, 10);
         app_state->active_camera_type = Orbit;
         
+        //
+        // Editor
+        //
+        app_state->editor.state->x_axis_color = v4(0, 0, 1, 1);
+        app_state->editor.state->y_axis_color = v4(0, 1, 0, 1);
+        app_state->editor.state->z_axis_color = v4(1, 0, 0, 1);
+        app_state->editor.hide_key = GLFW_KEY_GRAVE_ACCENT;
+        
         app_state->initialized = true;
     }
     
-    // TODO(lmk): begin frame
     scratch_arena.allocated = 0;
+    
+    
+    update_player_pos(&app_state->player_pos, app_state->player_speed);
+    update_active_camera(app_state);
+    
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     
     int screen_width = 800;
@@ -172,11 +188,24 @@ void update_and_render(Memory_Arena *platform_memory) {
     int screen_height = 600;
     int screen_height_half = screen_height / 2;
     
-    update_player_pos(&app_state->player_pos, app_state->player_speed);
-    update_active_camera(app_state);
-    
     mat4 view = get_active_camera_transform(app_state);
     mat4 projection = perspective(radians(45.0f), (f32)screen_width / (f32)screen_height, 0.1f, 100.0f);
+    
+    app_state->gl_utility_context.projection_3d = projection;
+    app_state->gl_utility_context.view_3d = view;
+    
     learnoepngl_camera(app_state, &projection, &view);
-    gl_cube(app_state->player_pos, v4(1, 0, 0, 1), &projection, &view);
+    gl_cube(app_state->player_pos, v4(1, 0, 0, 1));
+    
+    glDisable(GL_DEPTH_TEST);
+    v3 origin(0,0,0);
+    gl_line(origin, v3(1, 0, 0), app_state->editor.x_axis_color);
+    gl_line(origin, v3(0, 1, 0), app_state->editor.y_axis_color);
+    gl_line(origin, v3(0, 0, 1), app_state->editor.z_axis_color);
+    glEnable(GL_DEPTH_TEST);
+    
+    ImGui_BeginFrame();
+    bool show_demo_window;
+    ImGui::ShowDemoWindow(&show_demo_window);
+    ImGui_EndFrame();
 }

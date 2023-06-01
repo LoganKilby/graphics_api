@@ -34,7 +34,7 @@ struct GL_Shape_Context {
 struct GL_Utility_Context {
     GLuint initialized;
     
-    GL_Array_Buffer cube_3f;
+    GL_Array_Buffer array_buffer_v3f;
     
     GLuint program_static_color_v3f;
     GLint uniform_static_color_v3f_color;
@@ -51,6 +51,8 @@ struct GL_Utility_Context {
     GL_Texture2D awesome_face;
     
     mat4 ortho_2d;
+    mat4 projection_3d;
+    mat4 view_3d;
 };
 
 
@@ -96,7 +98,7 @@ static void gl_utility_init(GL_Utility_Context *context) {
     
     stbi_set_flip_vertically_on_load(true);
     
-    gl_array_buffer_3f(&context->cube_3f);
+    gl_array_buffer_3f(&context->array_buffer_v3f);
     
     GL_Utility_Compiled_Shaders sh = {};
     

@@ -14,9 +14,11 @@ struct Entity {
 
 
 struct Application_State {
-    bool initialized;
+    b32 initialized;
+    b32 edit_mode;
     
     GL_Utility_Context gl_utility_context;
+    Editor_State editor;
     
     u32 test_vao;
     u32 test_vbo;

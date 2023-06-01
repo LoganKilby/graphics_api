@@ -9,7 +9,7 @@
 #include "Windowsx.h" // GET_X_PARAM, GET_Y_PARAM
 #include "GL/glew.h"
 #include "GL/wglew.h"
-#include "D:/Library/glfw-3.3.8/include/GLFW/glfw3.h"
+
 #include "opengl_utility/core.h"
 #include "opengl_utility/debug.h"
 #include "../cfile/cfile.h"
@@ -44,18 +44,7 @@ struct __FILETIME {
 #include "arena.h"
 #include "input.h"
 
-struct Platform_Stuff {
-    GLFWwindow *window;
-    float delta_time;
-    v2 mouse_pos;
-    v2 mouse_diff;
-    f32 mouse_scroll_delta;
-    
-    void glfw_mouse_scroll_callback(GLFWwindow *window, double x_offset, double y_offset);
-    void glfw_window_focus_callback(GLFWwindow *window, int focused);
-};
-
-typedef void (__cdecl *Update_And_Render_Ptr)(Memory_Arena *, Input_State *);
+typedef void (__cdecl *Update_And_Render_Ptr)(Memory_Arena *);
 
 LRESULT CALLBACK win32_window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 internal int win32_set_pixel_format(HDC hdc);
@@ -63,7 +52,7 @@ internal void win32_debug_enumerate_pixel_formats(HDC hdc);
 internal u32 win32_repack_key_state(WPARAM wParam);
 internal bool win32_load_app_dll(char *dll_name, HINSTANCE *dll_handle_out, Update_And_Render_Ptr *proc_address);
 internal void win32_hot_reload(HINSTANCE *loaded_dll_handle, Update_And_Render_Ptr *proc_address);
-internal void win32_process_message_queue(Input_State *state);
+internal void win32_process_message_queue(Input_Event_List *event_list);
 
 #define WAS_DOWN(lParam) ((lParam & (1 << 30)) != 0)
 #define IS_DOWN(lParam) ((lParam & (1UL << 31)) == 0)

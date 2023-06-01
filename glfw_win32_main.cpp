@@ -3,13 +3,34 @@
 #include "D:\Library\glm\glm\gtc\matrix_transform.hpp"
 
 #include "win32_platform.h"
-global Platform_Stuff Platform;
+#include <GLFW/glfw3.h>
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_glfw.h"
+#include "imgui/imgui_impl_opengl3.h"
+#include "imgui_code.cpp"
+
+struct Platform_Stuff {
+    GLFWwindow *window;
+    float delta_time;
+    v2 mouse_pos;
+    v2 mouse_diff;
+    f32 mouse_scroll_delta;
+    
+    Input_Event_List event_list;
+} global Platform;
+
+
+void glfw_mouse_scroll_callback(GLFWwindow *window, double x_offset, double y_offset);
+void glfw_window_focus_callback(GLFWwindow *window, int focused);
 
 #include "tweak.h"
 #include "camera.cpp"
+#include "editor.cpp"
+
 
 #include "app.h"
 #include "app.cpp"
+
 
 void glfw_window_focus_callback(GLFWwindow* window, int focused)
 {
@@ -32,6 +53,16 @@ void glfw_scroll_callback(GLFWwindow *window, double x_offset, double y_offset) 
     Platform.mouse_scroll_delta = (f32)y_offset;
 }
 
+void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+    Input_Event event = {};
+    event.key = key;
+    event.scancode = scancode;
+    event.action = action;
+    event.mods = mods;
+    push_input_event(&Platform.event_list, event);
+}
+
 int main() {
     Platform = {};
     
@@ -40,6 +71,7 @@ int main() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
     glfwWindowHint(GLFW_DOUBLEBUFFER, GLFW_TRUE);
+    glfwWindowHint(GLFW_SAMPLES, 4);
     
     {
         TIMED_BLOCK;
@@ -47,18 +79,27 @@ int main() {
     }
     
     glfwMakeContextCurrent(Platform.window);
+    
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    ImGui::StyleColorsDark();
+    ImGui_ImplGlfw_InitForOpenGL(Platform.window, true);
+    ImGui_ImplOpenGL3_Init("#version 130");
+    
     glfwSetInputMode(Platform.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     
     GLenum glew_status = glewInit();
-    if(glew_status != GLEW_OK) {
+    if(glew_status != GLEW_OK) 
         fprintf(stderr, "Error: %s\n", glewGetErrorString(glew_status));
-    }
     
     glfwSetWindowFocusCallback(Platform.window, glfw_window_focus_callback);
     glfwSetScrollCallback(Platform.window, glfw_scroll_callback);
+    glfwSetKeyCallback(Platform.window, glfw_key_callback);
     //glfwSetWindowSizeCallback();
     //glfwSetWindowFramebufferSizeCallback();
-    //glfwSetKeyCallback();
+    
     
     Memory_Arena app_memory = {};
     app_memory.size = APP_MEMORY_SIZE;

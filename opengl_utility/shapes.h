@@ -136,25 +136,49 @@ inline f32 *get_vertices_cube(size_t *buffer_size, size_t *vertex_size) {
     return result;
 }
 
-void gl_cube(v3 position, v4 color, mat4 *projection, mat4 *view) {
-    GL_Array_Buffer *buf = &gl_utility_context_ptr->cube_3f;
+void gl_cube(v3 position, v4 color) {
+    GL_Array_Buffer *buf = &gl_utility_context_ptr->array_buffer_v3f;
     glBindVertexArray(buf->vao);
     glBindBuffer(GL_ARRAY_BUFFER, buf->vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(cube_v3f), cube_v3f, GL_STATIC_DRAW);
     
     int program = gl_utility_context_ptr->program_transform_static_color_v3f;
     glUseProgram(program);
+    
     int view_location = gl_get_uniform_location(program, "u_view");
     int projection_location = gl_get_uniform_location(program, "u_projection");
     int model_location = gl_get_uniform_location(program, "u_model");
     int color_location = gl_get_uniform_location(program, "u_color");
+    
     mat4 model = translate(mat4(1.0f), position);
-    glUniformMatrix4fv(projection_location, 1, GL_FALSE, (f32 *)projection);
-    glUniformMatrix4fv(view_location, 1, GL_FALSE, (f32 *)view);
+    glUniformMatrix4fv(projection_location, 1, GL_FALSE, (f32 *)&gl_utility_context_ptr->projection_3d);
+    glUniformMatrix4fv(view_location, 1, GL_FALSE, (f32 *)&gl_utility_context_ptr->view_3d);
     glUniformMatrix4fv(model_location, 1, GL_FALSE, (f32 *)&model);
     glUniform4f(color_location, color.r, color.g, color.g, color.a);
     glDrawArrays(GL_TRIANGLES, 0, 36);
 }
 
+void gl_line(v3 a, v3 b, v4 color) {
+    v3 buffer[] = {a, b};
+    GL_Array_Buffer *buf = &gl_utility_context_ptr->array_buffer_v3f;
+    glBindVertexArray(buf->vao);
+    glBindBuffer(GL_ARRAY_BUFFER, buf->vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(buffer), buffer, GL_STATIC_DRAW);
+    
+    int program = gl_utility_context_ptr->program_transform_static_color_v3f;
+    glUseProgram(program);
+    
+    int view_location = gl_get_uniform_location(program, "u_view");
+    int projection_location = gl_get_uniform_location(program, "u_projection");
+    int model_location = gl_get_uniform_location(program, "u_model");
+    int color_location = gl_get_uniform_location(program, "u_color");
+    
+    mat4 model = mat4(1.0f);
+    glUniformMatrix4fv(projection_location, 1, GL_FALSE, (f32 *)&gl_utility_context_ptr->projection_3d);
+    glUniformMatrix4fv(view_location, 1, GL_FALSE, (f32 *)&gl_utility_context_ptr->view_3d);
+    glUniformMatrix4fv(model_location, 1, GL_FALSE, (f32 *)&model);
+    glUniform4fv(color_location, 1, (f32 *)&color);
+    glDrawArrays(GL_LINES, 0, 2);
+}
 
 #endif //SHAPES_H
