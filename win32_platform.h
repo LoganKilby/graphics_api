@@ -18,8 +18,8 @@
 #define os_read_entire_file(file_name, bytes_read) win32_read_entire_file(file_name, bytes_read)
 #define APP_DLL_NAME "app.dll"
 #define APP_DLL_NAME_COPY "app.copy.dll"
-#define DEFAULT_WINDOW_WIDTH 1280
-#define DEFAULT_WINDOW_HEIGHT 720
+#define DEFAULT_WINDOW_WIDTH 1920
+#define DEFAULT_WINDOW_HEIGHT 1080
 
 // NOTE(lmk): __cdecl is microsoft-specific
 

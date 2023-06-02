@@ -6,6 +6,9 @@
 #define APP_MEMORY_SIZE kilobytes(16)
 #define WORLD_UP v3(0, 1, 0)
 
+#define ImGui_BeginFrame() ImGui_ImplOpenGL3_NewFrame(); ImGui_ImplGlfw_NewFrame(); ImGui::NewFrame();
+#define ImGui_EndFrame() ImGui::Render(); ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
 
 struct Entity {
     v3 position;

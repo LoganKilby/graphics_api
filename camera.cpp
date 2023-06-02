@@ -4,6 +4,21 @@
 // Orbit camera
 //
 
+
+v3 orbit_camera_eye(Orbit_Camera *camera, v3 target) {
+    f32 sin_azimuth = sin(camera->position.azimuth);
+    f32 cos_azimuth = cos(camera->position.azimuth);
+    f32 sin_polar = sin(camera->position.polar);
+    f32 cos_polar = cos(camera->position.polar);
+    
+    v3 result = v3(target.x + camera->position.radius * cos_polar * cos_azimuth,
+                   target.y + camera->position.radius * sin_polar,
+                   target.z + camera->position.radius * cos_polar * sin_azimuth);
+    
+    return result;
+}
+
+
 void rotate_orbit_camera_azimuth(Orbit_Camera *camera, f32 radians) {
     camera->position.azimuth += radians;
     camera->position.azimuth = fmodf(camera->position.azimuth, FULL_CIRCLE);
@@ -19,17 +34,14 @@ void rotate_orbit_camera_polar(Orbit_Camera *camera, f32 radians) {
 }
 
 
-v3 orbit_camera_eye(Orbit_Camera *camera, v3 target) {
-    f32 sin_azimuth = sin(camera->position.azimuth);
-    f32 cos_azimuth = cos(camera->position.azimuth);
-    f32 sin_polar = sin(camera->position.polar);
-    f32 cos_polar = cos(camera->position.polar);
+v3 pan_orbit_camera(Orbit_Camera *camera, v3 target, f32 distance) {
+    v3 camera_pos = orbit_camera_eye(camera, target);
+    v3 view_direction = normalize(target - camera_pos);
+    v3 pan_direction = normalize(cross(view_direction, UP));
     
-    v3 result = v3(target.x + camera->position.radius * cos_polar * cos_azimuth,
-                   target.y + camera->position.radius * sin_polar,
-                   target.z + camera->position.radius * cos_polar * sin_azimuth);
+    v3 new_target = target + pan_direction * distance * camera->pan_speed * Platform.delta_time;
     
-    return result;
+    return new_target;
 }
 
 

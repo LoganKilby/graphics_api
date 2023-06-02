@@ -2,24 +2,38 @@ void process_game_input(Application_State *app_state, Input_Event_List *list) {
     Input_Event event;
     while(get_next_input_event(list, &event)) {
         switch(event.device) {
-            
             case Mouse: {
                 if(event.key == GLFW_MOUSE_BUTTON_LEFT) {
-                    if(event.action == GLFW_PRESS) {
-                        glfwSetInputMode(Platform.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-                    } else {
-                        glfwSetInputMode(Platform.window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                    if(!app_state->editor.active) {
+                        if(event.action == GLFW_PRESS) {
+                            glfwSetInputMode(Platform.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+                        } else {
+                            glfwSetInputMode(Platform.window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                        }
                     }
-                } 
+                }
+                
             } break;
             
             
             case Keyboard: {
                 switch(event.key) {
                     case GLFW_KEY_GRAVE_ACCENT: {
+                        ImGuiIO& io = ImGui::GetIO();
+                        
                         if(event.action == GLFW_PRESS) {
-                            // TODO(lmk): check when hovering over imgui ui
-                            app_state->editor.active ^= 1;
+                            if(app_state->editor.active) {
+                                // deactivate editor
+                                app_state->editor.active = 0;
+                                io.WantCaptureMouse = false;
+                                
+                            } else {
+                                // activate editor, update editor camera
+                                app_state->editor.active = 1;
+                                app_state->editor.camera = app_state->orbit_camera;
+                                app_state->editor.camera_target = app_state->player_pos;
+                                io.WantCaptureMouse = true;
+                            }
                         }
                     } break;
                 }
@@ -31,6 +45,7 @@ void process_game_input(Application_State *app_state, Input_Event_List *list) {
         }
     }
 }
+
 
 void update_player_pos(v3 *player_pos, f32 speed) {
     v3 move = {};
@@ -50,25 +65,34 @@ void update_player_pos(v3 *player_pos, f32 speed) {
 
 
 void update_active_camera(Application_State *app_state) {
-    switch(app_state->active_camera_type) {
-        case Fly: {
-            if(!zero_vector(Platform.input_state.mouse_diff)) 
-                rotate_fly_camera(&app_state->fly_camera, Platform.input_state.mouse_diff);
-            
-        } break;
+    if(app_state->editor.active) {
+        if(!zero_vector(Platform.input_state.mouse_diff)) 
+            rotate_orbit_camera(&app_state->editor.camera, Platform.input_state.mouse_diff);
         
-        case Orbit: {
-            if(!zero_vector(Platform.input_state.mouse_diff)) 
-                rotate_orbit_camera(&app_state->orbit_camera, Platform.input_state.mouse_diff);
+        if(Platform.input_state.mouse_scroll_delta) 
+            zoom_orbit_camera(&app_state->editor.camera, Platform.input_state.mouse_scroll_delta);
+    } else {
+        switch(app_state->active_camera_type) {
+            case Fly: {
+                if(!zero_vector(Platform.input_state.mouse_diff)) 
+                    rotate_fly_camera(&app_state->fly_camera, Platform.input_state.mouse_diff);
+                
+            } break;
             
-            if(Platform.input_state.mouse_scroll_delta) 
-                zoom_orbit_camera(&app_state->orbit_camera, Platform.input_state.mouse_scroll_delta);
-        } break;
-        
-        default: {
-            assert(0); // No active camera
-        }; 
+            case Orbit: {
+                if(!zero_vector(Platform.input_state.mouse_diff)) 
+                    rotate_orbit_camera(&app_state->orbit_camera, Platform.input_state.mouse_diff);
+                
+                if(Platform.input_state.mouse_scroll_delta) 
+                    zoom_orbit_camera(&app_state->orbit_camera, Platform.input_state.mouse_scroll_delta);
+            } break;
+            
+            default: {
+                assert(0); // No active camera
+            }; 
+        }
     }
+    
 }
 
 
@@ -80,7 +104,12 @@ mat4 get_active_camera_transform(Application_State *app_state) {
         } break;
         
         case Orbit: {
-            result = lookAt_orbit_camera(&app_state->orbit_camera, app_state->player_pos);
+            if(app_state->editor.active) {
+                result = lookAt_orbit_camera(&app_state->orbit_camera, app_state->editor.camera_target);
+            } else {
+                result = lookAt_orbit_camera(&app_state->orbit_camera, app_state->player_pos);
+            }
+            
         } break;
         
         default: {
@@ -202,7 +231,7 @@ void update_and_render(Memory_Arena *platform_memory) {
         app_state->editor.y_axis_color = v4(0, 1, 0, 1);
         app_state->editor.z_axis_color = v4(1, 0, 0, 1);
         app_state->editor.hide_key = GLFW_KEY_GRAVE_ACCENT;
-        app_state->editor.active = 1;
+        app_state->editor.active = 0;
         
         app_state->initialized = true;
     }
@@ -212,16 +241,22 @@ void update_and_render(Memory_Arena *platform_memory) {
     process_game_input(app_state, &Platform.input_state.event_list);
     
     if(app_state->editor.active) {
+        
     } else {
         update_player_pos(&app_state->player_pos, app_state->player_speed);
     }
     
-    if(is_button_pressed(GLFW_MOUSE_BUTTON_LEFT)) {
-        if(!zero_vector(Platform.input_state.mouse_diff)) 
-            rotate_orbit_camera(&app_state->orbit_camera, Platform.input_state.mouse_diff);
-        
-        if(Platform.input_state.mouse_scroll_delta) 
-            zoom_orbit_camera(&app_state->orbit_camera, Platform.input_state.mouse_scroll_delta);
+    // if a ui window is hovered by the mouse, don't let mouse interact with the camera
+    if(app_state->editor.active) {
+        if(!ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow)) {
+            if(Platform.input_state.mouse_scroll_delta)
+                zoom_orbit_camera(&app_state->orbit_camera, Platform.input_state.mouse_scroll_delta);
+            
+            if(is_button_pressed(GLFW_MOUSE_BUTTON_LEFT)) {
+                if(!zero_vector(Platform.input_state.mouse_diff)) 
+                    rotate_orbit_camera(&app_state->orbit_camera, Platform.input_state.mouse_diff);
+            }
+        }
     }
     
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -248,8 +283,6 @@ void update_and_render(Memory_Arena *platform_memory) {
         bool show_demo_window;
         ImGui::ShowDemoWindow(&show_demo_window);
         ImGui_EndFrame();
-        
-        assert(ImGui::IsAnyItemHovered());
         
         glDisable(GL_DEPTH_TEST);
         v3 origin(0,0,0);

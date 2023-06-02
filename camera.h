@@ -15,6 +15,7 @@ struct Orbit_Camera {
     Spherical_Coordinates position;
     f32 look_speed;
     f32 zoom_speed;
+    f32 pan_speed;
 };
 
 

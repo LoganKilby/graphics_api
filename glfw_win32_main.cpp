@@ -7,7 +7,6 @@
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_opengl3.h"
-#include "imgui_code.cpp"
 
 struct Platform_Stuff {
     GLFWwindow *window;
@@ -94,6 +93,12 @@ int main() {
     }
     
     glfwMakeContextCurrent(Platform.window);
+    glfwSetWindowFocusCallback(Platform.window, glfw_window_focus_callback);
+    glfwSetScrollCallback(Platform.window, glfw_scroll_callback);
+    glfwSetKeyCallback(Platform.window, glfw_key_callback);
+    glfwSetMouseButtonCallback(Platform.window, glfw_mouse_button_callback);
+    //glfwSetWindowSizeCallback();
+    //glfwSetWindowFramebufferSizeCallback();
     
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -104,15 +109,10 @@ int main() {
     ImGui_ImplOpenGL3_Init("#version 130");
     
     GLenum glew_status = glewInit();
-    if(glew_status != GLEW_OK) 
+    if(glew_status != GLEW_OK) {
         fprintf(stderr, "Error: %s\n", glewGetErrorString(glew_status));
-    
-    glfwSetWindowFocusCallback(Platform.window, glfw_window_focus_callback);
-    glfwSetScrollCallback(Platform.window, glfw_scroll_callback);
-    glfwSetKeyCallback(Platform.window, glfw_key_callback);
-    glfwSetMouseButtonCallback(Platform.window, glfw_mouse_button_callback);
-    //glfwSetWindowSizeCallback();
-    //glfwSetWindowFramebufferSizeCallback();
+        assert(0);
+    }
     
     
     Memory_Arena app_memory = {};
