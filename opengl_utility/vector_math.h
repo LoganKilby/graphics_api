@@ -92,6 +92,7 @@ void cartesian_to_spherical(v3 pos, f32 *_radius, f32 *_azimuth, f32 *_polar) {
 // NOTE(lmk): glm ortho -- (left, right, bottom, top, near, far)
 // NOTE(lmk): glm lookAt -- (eye, center, up)
 
+
 v2 screen_to_ndc(v2 screen_pos, int screen_width, int screen_height) {
     v2 result;
     result.x = ((screen_pos.x / screen_width)) * 2 - 1;
@@ -99,15 +100,18 @@ v2 screen_to_ndc(v2 screen_pos, int screen_width, int screen_height) {
     return result;
 }
 
+
 f32 screen_x_to_ndc(f32 screen_pos, int screen_width) {
     f32 result = ((screen_pos / screen_width)) * 2 - 1;
     return result;
 }
 
+
 f32 screen_y_to_ndc(f32 screen_pos, int screen_height) {
     f32 result = ((screen_pos / screen_height)) * 2 - 1;
     return result;
 }
+
 
 struct Basis {
     v3 front;
@@ -115,10 +119,21 @@ struct Basis {
     v3 up;
 };
 
-void basis_from_front(Basis *basis, v3 front, v3 up = v3(0, 1, 0)) {
+
+void basis_from_front(Basis *basis, v3 front) {
     basis->front = normalize(front);
-    basis->right = normalize(cross(basis->front, up));
+    basis->right = normalize(cross(basis->front, UP));
     basis->up = normalize(cross(basis->right, basis->front));
+}
+
+
+mat4 rotate(Basis *basis) {
+    mat4 result;
+    result[0] = v4(basis->right.x, basis->up.x, basis->front.x, 0);
+    result[1] = v4(basis->right.y, basis->up.y, basis->front.y, 0);
+    result[2] = v4(basis->right.z, basis->up.z, basis->front.z, 0);
+    result[3] = v4(0, 0, 0, 1);
+    return result;
 }
 
 #endif //VECTOR_MATH_H

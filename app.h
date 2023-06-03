@@ -36,9 +36,8 @@ struct Application_State {
     Orbit_Camera orbit_camera;
     
     v3 player_pos;
+    Basis player_basis;
     f32 player_speed;
-    
-    Entity player;
 };
 
 #endif //APP_H

@@ -1,15 +1,15 @@
-void process_game_input(Application_State *app_state, Input_Event_List *list) {
+// NOTE(lmk): Some game behavior can be determined by simply the polled state, like if the left mouse button is down right now.
+// Other behavior depends on when exactly the event happened. That's what this function is for
+void process_game_input_events(Application_State *app_state, Input_Event_List *list) {
     Input_Event event;
     while(get_next_input_event(list, &event)) {
         switch(event.device) {
             case Mouse: {
                 if(event.key == GLFW_MOUSE_BUTTON_LEFT) {
-                    if(!app_state->editor.active) {
-                        if(event.action == GLFW_PRESS) {
-                            glfwSetInputMode(Platform.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-                        } else {
-                            glfwSetInputMode(Platform.window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-                        }
+                    if(event.action == GLFW_PRESS) {
+                        //glfwSetInputMode(Platform.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+                    } else {
+                        //glfwSetInputMode(Platform.window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
                     }
                 }
                 
@@ -17,26 +17,7 @@ void process_game_input(Application_State *app_state, Input_Event_List *list) {
             
             
             case Keyboard: {
-                switch(event.key) {
-                    case GLFW_KEY_GRAVE_ACCENT: {
-                        ImGuiIO& io = ImGui::GetIO();
-                        
-                        if(event.action == GLFW_PRESS) {
-                            if(app_state->editor.active) {
-                                // deactivate editor
-                                app_state->editor.active = 0;
-                                io.WantCaptureMouse = false;
-                                
-                            } else {
-                                // activate editor, update editor camera
-                                app_state->editor.active = 1;
-                                app_state->editor.camera = app_state->orbit_camera;
-                                app_state->editor.camera_target = app_state->player_pos;
-                                io.WantCaptureMouse = true;
-                            }
-                        }
-                    } break;
-                }
+                
             } break;
             
             default: {
@@ -47,52 +28,44 @@ void process_game_input(Application_State *app_state, Input_Event_List *list) {
 }
 
 
-void update_player_pos(v3 *player_pos, f32 speed) {
+void update_player_pos(v3 *player_pos, Basis *player_basis, f32 speed, Orbit_Camera *camera) {
     v3 move = {};
     
-    if(glfwGetKey(Platform.window, GLFW_KEY_W) == GLFW_PRESS)
-        --move.z;
-    if(glfwGetKey(Platform.window, GLFW_KEY_S) == GLFW_PRESS)
-        ++move.z;
-    if(glfwGetKey(Platform.window, GLFW_KEY_A) == GLFW_PRESS)
-        --move.x;
-    if(glfwGetKey(Platform.window, GLFW_KEY_D) == GLFW_PRESS)
-        ++move.x;
+    if(is_key_pressed(GLFW_KEY_W) || (is_mouse_button_pressed(GLFW_MOUSE_BUTTON_LEFT) && is_mouse_button_pressed(GLFW_MOUSE_BUTTON_RIGHT)))
+        move += player_basis->front;
+    if(is_key_pressed(GLFW_KEY_S))
+        move -= player_basis->front;
+    if(is_key_pressed(GLFW_KEY_A) || is_key_pressed(GLFW_KEY_Q))
+        move -= player_basis->right;
+    if(is_key_pressed(GLFW_KEY_D) || is_key_pressed(GLFW_KEY_E))
+        move += player_basis->right;
     
-    if(!zero_vector(move))
+    if(!zero_vector(move)) {
         *player_pos += normalize(move) * speed * Platform.delta_time;
+    }
 }
 
 
 void update_active_camera(Application_State *app_state) {
-    if(app_state->editor.active) {
-        if(!zero_vector(Platform.input_state.mouse_diff)) 
-            rotate_orbit_camera(&app_state->editor.camera, Platform.input_state.mouse_diff);
+    switch(app_state->active_camera_type) {
+        case Fly: {
+            if(!zero_vector(Platform.input_state.mouse_diff)) 
+                rotate_fly_camera(&app_state->fly_camera, Platform.input_state.mouse_diff);
+            
+        } break;
         
-        if(Platform.input_state.mouse_scroll_delta) 
-            zoom_orbit_camera(&app_state->editor.camera, Platform.input_state.mouse_scroll_delta);
-    } else {
-        switch(app_state->active_camera_type) {
-            case Fly: {
-                if(!zero_vector(Platform.input_state.mouse_diff)) 
-                    rotate_fly_camera(&app_state->fly_camera, Platform.input_state.mouse_diff);
-                
-            } break;
+        case Orbit: {
+            if(!zero_vector(Platform.input_state.mouse_diff)) 
+                rotate_orbit_camera(&app_state->orbit_camera, Platform.input_state.mouse_diff);
             
-            case Orbit: {
-                if(!zero_vector(Platform.input_state.mouse_diff)) 
-                    rotate_orbit_camera(&app_state->orbit_camera, Platform.input_state.mouse_diff);
-                
-                if(Platform.input_state.mouse_scroll_delta) 
-                    zoom_orbit_camera(&app_state->orbit_camera, Platform.input_state.mouse_scroll_delta);
-            } break;
-            
-            default: {
-                assert(0); // No active camera
-            }; 
-        }
+            if(Platform.input_state.mouse_scroll_delta) 
+                zoom_orbit_camera(&app_state->orbit_camera, Platform.input_state.mouse_scroll_delta);
+        } break;
+        
+        default: {
+            assert(0); // No active camera
+        }; 
     }
-    
 }
 
 
@@ -104,12 +77,7 @@ mat4 get_active_camera_transform(Application_State *app_state) {
         } break;
         
         case Orbit: {
-            if(app_state->editor.active) {
-                result = lookAt_orbit_camera(&app_state->orbit_camera, app_state->editor.camera_target);
-            } else {
-                result = lookAt_orbit_camera(&app_state->orbit_camera, app_state->player_pos);
-            }
-            
+            result = lookAt_orbit_camera(&app_state->orbit_camera, app_state->player_pos);
         } break;
         
         default: {
@@ -219,9 +187,11 @@ void update_and_render(Memory_Arena *platform_memory) {
         
         app_state->player_pos = v3(0, 0, 0);
         app_state->player_speed = DEFAULT_PLAYER_SPEED;
-        v3 player_front = v3(0, 0, -1);
+        basis_from_front(&app_state->player_basis, v3(0, 0, -1));
+        
+        
         //Spherical_Coordinates orbit_pos = orbit_camera_spherical_position(app_state->fly_camera.position, app_state->player_pos);
-        attach_orbit_camera(&app_state->orbit_camera, app_state->player_pos, player_front, 10);
+        attach_orbit_camera(&app_state->orbit_camera, app_state->player_pos, app_state->player_basis.front, 10);
         app_state->active_camera_type = Orbit;
         
         //
@@ -230,34 +200,36 @@ void update_and_render(Memory_Arena *platform_memory) {
         app_state->editor.x_axis_color = v4(0, 0, 1, 1);
         app_state->editor.y_axis_color = v4(0, 1, 0, 1);
         app_state->editor.z_axis_color = v4(1, 0, 0, 1);
-        app_state->editor.hide_key = GLFW_KEY_GRAVE_ACCENT;
-        app_state->editor.active = 0;
         
         app_state->initialized = true;
     }
     
     scratch_arena.allocated = 0;
     
-    process_game_input(app_state, &Platform.input_state.event_list);
-    
-    if(app_state->editor.active) {
+    // Update player orientation
+    if (is_mouse_button_pressed(GLFW_MOUSE_BUTTON_RIGHT)) {
+        v3 camera_pos = orbit_camera_eye(&app_state->orbit_camera, app_state->player_pos);
+        v3 camera_front = normalize(app_state->player_pos - camera_pos);
         
-    } else {
-        update_player_pos(&app_state->player_pos, app_state->player_speed);
+        // TODO(lmk): This won't work if the player should move about the y axis!!
+        v3 new_player_front = v3(camera_front.x, 0, camera_front.z);
+        basis_from_front(&app_state->player_basis, new_player_front);
     }
+    
+    process_game_input_events(app_state, &Platform.input_state.event_list);
+    update_player_pos(&app_state->player_pos, &app_state->player_basis, app_state->player_speed, &app_state->orbit_camera);
     
     // if a ui window is hovered by the mouse, don't let mouse interact with the camera
-    if(app_state->editor.active) {
-        if(!ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow)) {
-            if(Platform.input_state.mouse_scroll_delta)
-                zoom_orbit_camera(&app_state->orbit_camera, Platform.input_state.mouse_scroll_delta);
-            
-            if(is_button_pressed(GLFW_MOUSE_BUTTON_LEFT)) {
-                if(!zero_vector(Platform.input_state.mouse_diff)) 
-                    rotate_orbit_camera(&app_state->orbit_camera, Platform.input_state.mouse_diff);
-            }
+    if(!ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow)) {
+        if(Platform.input_state.mouse_scroll_delta)
+            zoom_orbit_camera(&app_state->orbit_camera, Platform.input_state.mouse_scroll_delta);
+        
+        if(is_mouse_button_pressed(GLFW_MOUSE_BUTTON_LEFT) || is_mouse_button_pressed(GLFW_MOUSE_BUTTON_RIGHT)) {
+            if(!zero_vector(Platform.input_state.mouse_diff)) 
+                rotate_orbit_camera(&app_state->orbit_camera, Platform.input_state.mouse_diff);
         }
     }
+    
     
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     
@@ -272,23 +244,14 @@ void update_and_render(Memory_Arena *platform_memory) {
     app_state->gl_utility_context.projection_3d = projection;
     app_state->gl_utility_context.view_3d = view;
     learnoepngl_camera(app_state, &projection, &view);
-    gl_cube(app_state->player_pos, v4(1, 0, 0, 1));
-    
+    gl_cube(app_state->player_pos, &app_state->player_basis, v4(1, 1, 1, 1));
+    gl_basis(app_state->player_pos, &app_state->player_basis);
     
     //
     // Render editor
     // 
-    if(app_state->editor.active) {
-        ImGui_BeginFrame();
-        bool show_demo_window;
-        ImGui::ShowDemoWindow(&show_demo_window);
-        ImGui_EndFrame();
-        
-        glDisable(GL_DEPTH_TEST);
-        v3 origin(0,0,0);
-        gl_line(origin, v3(1, 0, 0), app_state->editor.x_axis_color);
-        gl_line(origin, v3(0, 1, 0), app_state->editor.y_axis_color);
-        gl_line(origin, v3(0, 0, 1), app_state->editor.z_axis_color);
-        glEnable(GL_DEPTH_TEST);
-    }
+    ImGui_BeginFrame();
+    bool show_demo_window;
+    ImGui::ShowDemoWindow(&show_demo_window);
+    ImGui_EndFrame();
 }

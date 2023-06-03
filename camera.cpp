@@ -19,6 +19,9 @@ v3 orbit_camera_eye(Orbit_Camera *camera, v3 target) {
 }
 
 
+// TODO(lmk): update camera basis when rotating?
+
+
 void rotate_orbit_camera_azimuth(Orbit_Camera *camera, f32 radians) {
     camera->position.azimuth += radians;
     camera->position.azimuth = fmodf(camera->position.azimuth, FULL_CIRCLE);

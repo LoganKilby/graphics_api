@@ -17,7 +17,8 @@ struct Platform_Stuff {
 
 void glfw_mouse_scroll_callback(GLFWwindow *window, double x_offset, double y_offset);
 void glfw_window_focus_callback(GLFWwindow *window, int focused);
-bool is_button_pressed(int);
+bool is_mouse_button_pressed(int);
+bool is_key_pressed(int);
 
 #include "tweak.h"
 #include "camera.cpp"
@@ -28,8 +29,13 @@ bool is_button_pressed(int);
 #include "app.cpp"
 
 
-bool is_button_pressed(int key) {
-    return (glfwGetMouseButton(Platform.window, key) == GLFW_PRESS);
+bool is_mouse_button_pressed(int button) {
+    return (glfwGetMouseButton(Platform.window, button) == GLFW_PRESS);
+}
+
+
+bool is_key_pressed(int key) {
+    return (glfwGetKey(Platform.window, key) == GLFW_PRESS);
 }
 
 
