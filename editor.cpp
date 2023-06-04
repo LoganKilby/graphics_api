@@ -5,6 +5,7 @@ struct Editor_State {
     
     Orbit_Camera camera;
     v3 camera_target;
+    b32 editing;
 };
 
 void show_editor_window() {

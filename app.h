@@ -15,13 +15,22 @@ struct Entity {
     Basis basis;
 };
 
+struct Scene {
+    Entity player;
+    
+    int world_object_count;
+    Entity objects[MAX_SCENE_OBJECTS];
+    
+    Editor_State editor;
+    Orbit_Camera camera; // game play camera
+};
+
 
 struct Application_State {
     b32 initialized;
     b32 edit_mode;
     
     GL_Utility_Context gl_utility_context;
-    Editor_State editor;
     
     u32 test_vao;
     u32 test_vbo;
@@ -31,13 +40,8 @@ struct Application_State {
     GL_Array_Buffer v3f_uv2f;
     GL_Texture2D alexstrasza;
     
-    Camera_Type active_camera_type;
-    Fly_Camera fly_camera;
-    Orbit_Camera orbit_camera;
-    
-    v3 player_pos;
-    Basis player_basis;
-    f32 player_speed;
+    Scene scene;
 };
+
 
 #endif //APP_H

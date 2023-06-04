@@ -19,9 +19,6 @@ v3 orbit_camera_eye(Orbit_Camera *camera, v3 target) {
 }
 
 
-// TODO(lmk): update camera basis when rotating?
-
-
 void rotate_orbit_camera_azimuth(Orbit_Camera *camera, f32 radians) {
     camera->position.azimuth += radians;
     camera->position.azimuth = fmodf(camera->position.azimuth, FULL_CIRCLE);
@@ -83,6 +80,9 @@ mat4 lookAt_orbit_camera(Orbit_Camera *camera, v3 target) {
 void attach_orbit_camera(Orbit_Camera *camera, v3 target_pos, v3 target_front, f32 dist_from_target) {
     v3 camera_pos = target_pos + (UP * dist_from_target);
     
+    v3 camera_front = normalize(target_pos - camera_pos);
+    basis_from_front(&camera->basis, camera_front);
+    
     Spherical_Coordinates orbit_pos;
     cartesian_to_spherical(camera_pos, &orbit_pos.radius, &orbit_pos.azimuth, &orbit_pos.polar);
     
@@ -90,6 +90,25 @@ void attach_orbit_camera(Orbit_Camera *camera, v3 target_pos, v3 target_front, f
     rotate_orbit_camera_azimuth(camera, orbit_pos.azimuth);
     camera->position.radius = orbit_pos.radius;
 }
+
+
+void update_orbit_camera(Orbit_Camera *camera, v3 target) {
+    // if a ui window is hovered by the mouse, don't let mouse interact with the camera
+    if(!ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow)) {
+        if(Platform.input_state.mouse_scroll_delta)
+            zoom_orbit_camera(camera, Platform.input_state.mouse_scroll_delta);
+        
+        if(is_mouse_button_pressed(GLFW_MOUSE_BUTTON_LEFT) || is_mouse_button_pressed(GLFW_MOUSE_BUTTON_RIGHT)) {
+            if(!zero_vector(Platform.input_state.mouse_diff)) {
+                rotate_orbit_camera(camera, Platform.input_state.mouse_diff);
+                v3 camera_pos = orbit_camera_eye(camera, target);
+                v3 camera_front = normalize(target - camera_pos);
+                basis_from_front(&camera->basis, camera_front);
+            }
+        }
+    }
+}
+
 
 
 //

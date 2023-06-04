@@ -1,8 +1,24 @@
+
+
+void save_scene_data(Scene *scene) {
+    cfile_write(DEBUG_SCENE_NAME, scene, sizeof(Scene));
+}
+
+
+void load_scene_data(Scene *scene_dest) {
+    size_t bytes_read;
+    Scene *data = (Scene *)cfile_read(DEBUG_SCENE_NAME, &bytes_read);
+    assert(bytes_read == sizeof(Scene));
+    memcpy(scene_dest, data, sizeof(Scene));
+    free(data);
+}
+
+
 // NOTE(lmk): Some game behavior can be determined by simply the polled state, like if the left mouse button is down right now.
 // Other behavior depends on when exactly the event happened. That's what this function is for
-void process_game_input_events(Application_State *app_state, Input_Event_List *list) {
+void process_game_input_events(Application_State *app_state) {
     Input_Event event;
-    while(get_next_input_event(list, &event)) {
+    while(get_next_input_event(&event)) {
         switch(event.device) {
             case Mouse: {
                 if(event.key == GLFW_MOUSE_BUTTON_LEFT) {
@@ -12,12 +28,62 @@ void process_game_input_events(Application_State *app_state, Input_Event_List *l
                         //glfwSetInputMode(Platform.window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
                     }
                 }
-                
             } break;
             
+            case Keyboard: {
+                switch(event.key) {
+                    case GLFW_KEY_GRAVE_ACCENT: {
+                        if(event.action == GLFW_PRESS) {
+                            app_state->scene.editor.editing ^= 1;
+                            app_state->scene.editor.camera = app_state->scene.camera;
+                            app_state->scene.editor.camera_target = app_state->scene.player.position;
+                        }
+                    } break;
+                }
+            } break;
+            
+            default: {
+                assert(0);
+            } break;
+        }
+    }
+}
+
+
+void process_editor_input_events(Application_State *app_state) {
+    Input_Event event;
+    while(get_next_input_event(&event)) {
+        switch(event.device) {
+            case Mouse: {
+                if(event.key == GLFW_MOUSE_BUTTON_LEFT) {
+                    if(event.action == GLFW_PRESS) {
+                        //glfwSetInputMode(Platform.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+                    } else {
+                        //glfwSetInputMode(Platform.window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                    }
+                }
+            } break;
             
             case Keyboard: {
-                
+                switch(event.key) {
+                    case GLFW_KEY_GRAVE_ACCENT: {
+                        if(event.action == GLFW_PRESS) {
+                            app_state->scene.editor.editing ^= 1;
+                        }
+                    } break;
+                    
+                    case GLFW_KEY_S: {
+                        if((event.action == GLFW_PRESS) && (event.mods == GLFW_KEY_LEFT_CONTROL)) {
+                            save_scene_data(&app_state->scene);
+                            // TODO(lmk): Put a message on the screen
+                            printf("scene saved\n");
+                        }
+                    } break;
+                    
+                    case GLFW_KEY_Z: {
+                        
+                    } break;
+                }
             } break;
             
             default: {
@@ -46,47 +112,14 @@ void update_player_pos(v3 *player_pos, Basis *player_basis, f32 speed, Orbit_Cam
 }
 
 
-void update_active_camera(Application_State *app_state) {
-    switch(app_state->active_camera_type) {
-        case Fly: {
-            if(!zero_vector(Platform.input_state.mouse_diff)) 
-                rotate_fly_camera(&app_state->fly_camera, Platform.input_state.mouse_diff);
-            
-        } break;
-        
-        case Orbit: {
-            if(!zero_vector(Platform.input_state.mouse_diff)) 
-                rotate_orbit_camera(&app_state->orbit_camera, Platform.input_state.mouse_diff);
-            
-            if(Platform.input_state.mouse_scroll_delta) 
-                zoom_orbit_camera(&app_state->orbit_camera, Platform.input_state.mouse_scroll_delta);
-        } break;
-        
-        default: {
-            assert(0); // No active camera
-        }; 
-    }
-}
-
-
-mat4 get_active_camera_transform(Application_State *app_state) {
-    mat4 result;
-    switch(app_state->active_camera_type) {
-        case Fly: {
-            result = lookAt_fly_camera(&app_state->fly_camera);
-        } break;
-        
-        case Orbit: {
-            result = lookAt_orbit_camera(&app_state->orbit_camera, app_state->player_pos);
-        } break;
-        
-        default: {
-            result = mat4(1.0f);
-            assert(0); // No active camera
-        };
-    }
+Orbit_Camera *get_active_camera(Application_State *app_state) {
+    Orbit_Camera *camera;
+    if(app_state->scene.editor.editing) 
+        camera = &app_state->scene.editor.camera;
+    else
+        camera = &app_state->scene.camera;
     
-    return result;
+    return camera;
 }
 
 
@@ -139,14 +172,12 @@ void learnoepngl_camera(Application_State *app_state, mat4 *projection, mat4 *vi
 }
 
 
-void update_and_render(Memory_Arena *platform_memory) {
-    Application_State *app_state = (Application_State *)platform_memory->base_address;
+void update_and_render(void *platform_memory) {
+    Application_State *app_state = (Application_State *)platform_memory;
     
     gl_utility_context_ptr = &app_state->gl_utility_context;
     
     if(!app_state->initialized) {
-        scratch_arena = create_arena_local((u8 *)platform_memory->base_address + sizeof(Application_State), APP_MEMORY_SIZE - sizeof(Application_State));
-        
         gl_utility_init(&app_state->gl_utility_context);
         gl_vertex_buffer_3f3f(&app_state->test_vao, &app_state->test_vbo);
         GL_Utility_Compiled_Shaders sh = {};
@@ -173,63 +204,59 @@ void update_and_render(Memory_Arena *platform_memory) {
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         
+        app_state->scene.player.position = v3(0, 0, 0);
+        
         //
         // Camera
         //
-        app_state->fly_camera.position = DEFAULT_CAMERA_POS;
-        app_state->fly_camera.basis.front = v3(0, 0, -1);
-        basis_from_front(&app_state->fly_camera.basis, app_state->fly_camera.basis.front);
-        app_state->fly_camera.yaw = -90.0f;
-        app_state->fly_camera.look_speed = DEFAULT_FLY_CAMERA_LOOK_SPEED;
-        app_state->fly_camera.move_speed = DEFAULT_FLY_CAMERA_MOVE_SPEED;
-        app_state->orbit_camera.look_speed = DEFAULT_ORBIT_CAMERA_LOOK_SPEED;
-        app_state->orbit_camera.zoom_speed = DEFAULT_ORBIT_CAMERA_ZOOM_SPEED;
-        
-        app_state->player_pos = v3(0, 0, 0);
-        app_state->player_speed = DEFAULT_PLAYER_SPEED;
-        basis_from_front(&app_state->player_basis, v3(0, 0, -1));
-        
-        
-        //Spherical_Coordinates orbit_pos = orbit_camera_spherical_position(app_state->fly_camera.position, app_state->player_pos);
-        attach_orbit_camera(&app_state->orbit_camera, app_state->player_pos, app_state->player_basis.front, 10);
-        app_state->active_camera_type = Orbit;
+        app_state->scene.camera.look_speed = DEFAULT_ORBIT_CAMERA_LOOK_SPEED;
+        app_state->scene.camera.zoom_speed = DEFAULT_ORBIT_CAMERA_ZOOM_SPEED;
+        basis_from_front(&app_state->scene.player.basis, v3(0, 0, -1));
+        attach_orbit_camera(&app_state->scene.camera, app_state->scene.player.position, app_state->scene.player.basis.front, 10);
         
         //
         // Editor
         //
-        app_state->editor.x_axis_color = v4(0, 0, 1, 1);
-        app_state->editor.y_axis_color = v4(0, 1, 0, 1);
-        app_state->editor.z_axis_color = v4(1, 0, 0, 1);
+        app_state->scene.editor.x_axis_color = v4(0, 0, 1, 1);
+        app_state->scene.editor.y_axis_color = v4(0, 1, 0, 1);
+        app_state->scene.editor.z_axis_color = v4(1, 0, 0, 1);
+        app_state->scene.editor.editing = 0;
+        
+        //load_scene_data(&app_state->scene);
         
         app_state->initialized = true;
     }
     
-    scratch_arena.allocated = 0;
+    Editor_State *editor = &app_state->scene.editor;
+    Orbit_Camera *active_camera = get_active_camera(app_state);
     
-    // Update player orientation
-    if (is_mouse_button_pressed(GLFW_MOUSE_BUTTON_RIGHT)) {
-        v3 camera_pos = orbit_camera_eye(&app_state->orbit_camera, app_state->player_pos);
-        v3 camera_front = normalize(app_state->player_pos - camera_pos);
+    v3 camera_target;
+    if(editor->editing) {
+        process_editor_input_events(app_state);
         
-        // TODO(lmk): This won't work if the player should move about the y axis!!
-        v3 new_player_front = v3(camera_front.x, 0, camera_front.z);
-        basis_from_front(&app_state->player_basis, new_player_front);
-    }
-    
-    process_game_input_events(app_state, &Platform.input_state.event_list);
-    update_player_pos(&app_state->player_pos, &app_state->player_basis, app_state->player_speed, &app_state->orbit_camera);
-    
-    // if a ui window is hovered by the mouse, don't let mouse interact with the camera
-    if(!ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow)) {
-        if(Platform.input_state.mouse_scroll_delta)
-            zoom_orbit_camera(&app_state->orbit_camera, Platform.input_state.mouse_scroll_delta);
-        
-        if(is_mouse_button_pressed(GLFW_MOUSE_BUTTON_LEFT) || is_mouse_button_pressed(GLFW_MOUSE_BUTTON_RIGHT)) {
-            if(!zero_vector(Platform.input_state.mouse_diff)) 
-                rotate_orbit_camera(&app_state->orbit_camera, Platform.input_state.mouse_diff);
+        if(is_mouse_button_pressed(GLFW_MOUSE_BUTTON_RIGHT)) {
+            //editor->camera_target = pan_orbit_camera(active_camera, editor->camera_target, 1);
         }
+        
+        update_orbit_camera(active_camera, editor->camera_target);
+        camera_target = editor->camera_target;
+    } else {
+        camera_target = app_state->scene.player.position;
+        process_game_input_events(app_state);
+        
+        // Update player orientation
+        if (is_mouse_button_pressed(GLFW_MOUSE_BUTTON_RIGHT)) {
+            v3 camera_pos = orbit_camera_eye(active_camera, camera_target);
+            v3 camera_front = normalize(camera_target - camera_pos);
+            
+            // TODO(lmk): This won't work if the player should move about the y axis!!
+            v3 new_player_front = v3(camera_front.x, 0, camera_front.z);
+            basis_from_front(&app_state->scene.player.basis, new_player_front);
+        }
+        
+        update_orbit_camera(active_camera, camera_target);
+        update_player_pos(&app_state->scene.player.position, &app_state->scene.player.basis, DEFAULT_PLAYER_SPEED, &app_state->scene.camera);
     }
-    
     
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     
@@ -240,12 +267,12 @@ void update_and_render(Memory_Arena *platform_memory) {
     GL_Viewport viewport;
     glGetIntegerv(GL_VIEWPORT, (int *)&viewport);
     mat4 projection = perspective(radians(45.0f), (f32)viewport.width / (f32)viewport.height, 0.1f, 100.0f);
-    mat4 view = get_active_camera_transform(app_state);
+    mat4 view = lookAt_orbit_camera(active_camera, camera_target);
     app_state->gl_utility_context.projection_3d = projection;
     app_state->gl_utility_context.view_3d = view;
     learnoepngl_camera(app_state, &projection, &view);
-    gl_cube(app_state->player_pos, &app_state->player_basis, v4(1, 1, 1, 1));
-    gl_basis(app_state->player_pos, &app_state->player_basis);
+    gl_cube(app_state->scene.player.position, &app_state->scene.player.basis, v4(1, 1, 1, 1));
+    gl_basis(app_state->scene.player.position, &app_state->scene.player.basis);
     
     //
     // Render editor

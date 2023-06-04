@@ -8,6 +8,10 @@
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_opengl3.h"
 
+// NOTE(lmk): Some library, I think GLM, includes cassert, so we have to undefine it
+#undef assert
+#define assert(expression) if(!(expression)) { *(int *)0 = 0; }
+
 struct Platform_Stuff {
     GLFWwindow *window;
     float delta_time;
@@ -19,11 +23,11 @@ void glfw_mouse_scroll_callback(GLFWwindow *window, double x_offset, double y_of
 void glfw_window_focus_callback(GLFWwindow *window, int focused);
 bool is_mouse_button_pressed(int);
 bool is_key_pressed(int);
+bool get_next_input_event(Input_Event *event);
 
 #include "tweak.h"
 #include "camera.cpp"
 #include "editor.cpp"
-
 
 #include "app.h"
 #include "app.cpp"
@@ -36,6 +40,16 @@ bool is_mouse_button_pressed(int button) {
 
 bool is_key_pressed(int key) {
     return (glfwGetKey(Platform.window, key) == GLFW_PRESS);
+}
+
+
+bool get_next_input_event(Input_Event *event) {
+    if(Platform.input_state.event_list.count > 0) {
+        *event = pop_input_event(&Platform.input_state.event_list);
+        return true;
+    }
+    
+    return false;
 }
 
 
@@ -120,7 +134,6 @@ int main() {
         assert(0);
     }
     
-    
     Memory_Arena app_memory = {};
     app_memory.size = APP_MEMORY_SIZE;
     app_memory.base_address = VirtualAlloc(0, sizeof(Application_State), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
@@ -143,7 +156,7 @@ int main() {
         Platform.input_state.mouse_diff = v2(cursor_x - Platform.input_state.mouse_pos.x, Platform.input_state.mouse_pos.y - cursor_y);
         Platform.input_state.mouse_pos = v2(cursor_x, cursor_y);
         
-        update_and_render(&app_memory);
+        update_and_render(app_memory.base_address);
         
         glfwSwapBuffers(Platform.window);
         

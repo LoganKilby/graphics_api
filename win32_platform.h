@@ -31,12 +31,12 @@ struct __FILETIME {
 
 #ifdef DEBUG
 #define TIMED_BLOCK High_Resolution_Timer(__FUNCTION__)
-#define log(msg) OutputDebugStringA(msg)
+#define debug_log(msg) OutputDebugStringA(msg)
 #define load_app_dll(dll_out, proc_address_out) win32_load_app_dll(APP_DLL_NAME_COPY, dll_out, proc_address_out)
 #define debug_hot_reload_app_dll(dll_handle, proc_address) win32_hot_reload(dll_handle, proc_address)
 #else
 #define TIMED_BLOCK
-#define log(msg)
+#define debug_log(msg)
 #define load_app_dll(dll_out, proc_address_out) win32_load_app_dll(APP_DLL_NAME, dll_out, proc_address_out)
 #define debug_hot_reload_app_dll(dll_out, proc_address_out)
 #endif

@@ -29,32 +29,19 @@ struct Input_State {
     Input_Event_List event_list;
 };
 
-internal bool push_input_event(Input_Event_List *event_list, Input_Event event) {
-    if(event_list->count < countof(event_list->events)) {
-        event_list->events[event_list->count++] = event;
-        return false;
-    } else {
-        // Discarding the oldest input event, then adding to the front of the queue
-        memcpy(event_list->events, &event_list->events[1], sizeof(Input_Event) * (countof(event_list->events) - 1));
-        event_list->events[0] = event;
-        log("Input event discarded\n");
-        return true;
-    }
+internal Input_Event pop_input_event(Input_Event_List *list) {
+    Input_Event result = list->events[0];
+    memcpy(list->events, &list->events[1], sizeof(Input_Event) * (countof(list->events) - 1));
+    list->count = max(0, list->count - 1);
+    
+    return result;
 }
 
-internal bool get_next_input_event(Input_Event_List *list, Input_Event *event) {
-    if(list->count)
-    {
-        *event = list->events[0];
-        memcpy(list->events, &list->events[1], sizeof(Input_Event) * (countof(list->events) - 1));
-        list->count -= 1;
-        return true;
-    }
+internal void push_input_event(Input_Event_List *event_list, Input_Event event) {
+    if(event_list->count < countof(event_list->events)) 
+        event_list->events[event_list->count++] = event;
     else
-    {
-        event = 0;
-        return false;
-    }
+        assert(0); // Input event list full
 }
 
 #endif //INPUT_H
