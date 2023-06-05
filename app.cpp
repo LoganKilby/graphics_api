@@ -221,6 +221,7 @@ void update_and_render(void *platform_memory) {
         app_state->scene.editor.y_axis_color = v4(0, 1, 0, 1);
         app_state->scene.editor.z_axis_color = v4(1, 0, 0, 1);
         app_state->scene.editor.editing = 0;
+        app_state->scene.camera.pan_speed = DEFAULT_ORBIT_CAMERA_PAN_SPEED;
         
         //load_scene_data(&app_state->scene);
         
@@ -230,32 +231,49 @@ void update_and_render(void *platform_memory) {
     Editor_State *editor = &app_state->scene.editor;
     Orbit_Camera *active_camera = get_active_camera(app_state);
     
-    v3 camera_target;
     if(editor->editing) {
         process_editor_input_events(app_state);
         
-        if(is_mouse_button_pressed(GLFW_MOUSE_BUTTON_RIGHT)) {
-            //editor->camera_target = pan_orbit_camera(active_camera, editor->camera_target, 1);
-        }
+        active_camera = &app_state->scene.editor.camera;
         
-        update_orbit_camera(active_camera, editor->camera_target);
-        camera_target = editor->camera_target;
+        // if a ui window is hovered by the mouse, don't let mouse interact with the camera
+        if(!ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow)) {
+            if(is_mouse_button_pressed(GLFW_MOUSE_BUTTON_LEFT)) {
+                rotate_orbit_camera(active_camera, Platform.input_state.mouse_diff);
+            }
+            
+            if(is_mouse_button_pressed(GLFW_MOUSE_BUTTON_RIGHT)) 
+                pan_orbit_camera(active_camera, Platform.input_state.mouse_diff);
+            
+            if(Platform.input_state.mouse_scroll_delta)
+                zoom_orbit_camera(active_camera, Platform.input_state.mouse_scroll_delta);
+        }
     } else {
-        camera_target = app_state->scene.player.position;
         process_game_input_events(app_state);
+        active_camera = &app_state->scene.camera;
+        update_player_pos(&app_state->scene.player.position, &app_state->scene.player.basis, DEFAULT_PLAYER_SPEED, active_camera);
+        active_camera->target = app_state->scene.player.position;
+        
+        // if a ui window is hovered by the mouse, don't let mouse interact with the camera
+        if(!ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow)) {
+            if(Platform.input_state.mouse_scroll_delta)
+                zoom_orbit_camera(active_camera, Platform.input_state.mouse_scroll_delta);
+            
+            if(is_mouse_button_pressed(GLFW_MOUSE_BUTTON_LEFT) || is_mouse_button_pressed(GLFW_MOUSE_BUTTON_RIGHT)) {
+                if(!zero_vector(Platform.input_state.mouse_diff)) {
+                    rotate_orbit_camera(active_camera, Platform.input_state.mouse_diff);
+                }
+            }
+        }
         
         // Update player orientation
         if (is_mouse_button_pressed(GLFW_MOUSE_BUTTON_RIGHT)) {
-            v3 camera_pos = orbit_camera_eye(active_camera, camera_target);
-            v3 camera_front = normalize(camera_target - camera_pos);
+            v3 camera_pos = orbit_camera_eye(active_camera);
             
             // TODO(lmk): This won't work if the player should move about the y axis!!
-            v3 new_player_front = v3(camera_front.x, 0, camera_front.z);
+            v3 new_player_front = v3(active_camera->basis.front.x, 0, active_camera->basis.front.z);
             basis_from_front(&app_state->scene.player.basis, new_player_front);
         }
-        
-        update_orbit_camera(active_camera, camera_target);
-        update_player_pos(&app_state->scene.player.position, &app_state->scene.player.basis, DEFAULT_PLAYER_SPEED, &app_state->scene.camera);
     }
     
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -267,7 +285,7 @@ void update_and_render(void *platform_memory) {
     GL_Viewport viewport;
     glGetIntegerv(GL_VIEWPORT, (int *)&viewport);
     mat4 projection = perspective(radians(45.0f), (f32)viewport.width / (f32)viewport.height, 0.1f, 100.0f);
-    mat4 view = lookAt_orbit_camera(active_camera, camera_target);
+    mat4 view = lookAt_orbit_camera(active_camera);
     app_state->gl_utility_context.projection_3d = projection;
     app_state->gl_utility_context.view_3d = view;
     learnoepngl_camera(app_state, &projection, &view);

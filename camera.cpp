@@ -5,15 +5,15 @@
 //
 
 
-v3 orbit_camera_eye(Orbit_Camera *camera, v3 target) {
+v3 orbit_camera_eye(Orbit_Camera *camera) {
     f32 sin_azimuth = sin(camera->position.azimuth);
     f32 cos_azimuth = cos(camera->position.azimuth);
     f32 sin_polar = sin(camera->position.polar);
     f32 cos_polar = cos(camera->position.polar);
     
-    v3 result = v3(target.x + camera->position.radius * cos_polar * cos_azimuth,
-                   target.y + camera->position.radius * sin_polar,
-                   target.z + camera->position.radius * cos_polar * sin_azimuth);
+    v3 result = v3(camera->target.x + camera->position.radius * cos_polar * cos_azimuth,
+                   camera->target.y + camera->position.radius * sin_polar,
+                   camera->target.z + camera->position.radius * cos_polar * sin_azimuth);
     
     return result;
 }
@@ -34,14 +34,12 @@ void rotate_orbit_camera_polar(Orbit_Camera *camera, f32 radians) {
 }
 
 
-v3 pan_orbit_camera(Orbit_Camera *camera, v3 target, f32 distance) {
-    v3 camera_pos = orbit_camera_eye(camera, target);
-    v3 view_direction = normalize(target - camera_pos);
-    v3 pan_direction = normalize(cross(view_direction, UP));
-    
-    v3 new_target = target + pan_direction * distance * camera->pan_speed * Platform.delta_time;
-    
-    return new_target;
+void pan_orbit_camera(Orbit_Camera *camera, v2 mouse_diff) {
+    if(!zero_vector(mouse_diff)) {
+        assert(camera->pan_speed > 0);
+        camera->target += camera->basis.right * -mouse_diff.x * camera->pan_speed * Platform.delta_time;
+        camera->target += v3(camera->basis.front.x, 0, camera->basis.front.z) * -mouse_diff.y * camera->pan_speed * Platform.delta_time;
+    }
 }
 
 
@@ -57,21 +55,28 @@ Spherical_Coordinates orbit_camera_spherical_position(v3 camera_pos, v3 target_p
 
 
 void rotate_orbit_camera(Orbit_Camera *camera, v2 mouse_delta) {
-    f32 adjusted_mouse_diff_x = Platform.input_state.mouse_diff.x * camera->look_speed * Platform.delta_time;
-    f32 adjusted_mouse_diff_y = Platform.input_state.mouse_diff.y * camera->look_speed * Platform.delta_time;
-    rotate_orbit_camera_azimuth(camera, radians(adjusted_mouse_diff_x));
-    rotate_orbit_camera_polar(camera, radians(-adjusted_mouse_diff_y));
+    if(!zero_vector(mouse_delta)) {
+        f32 adjusted_mouse_diff_x = Platform.input_state.mouse_diff.x * camera->look_speed * Platform.delta_time;
+        f32 adjusted_mouse_diff_y = Platform.input_state.mouse_diff.y * camera->look_speed * Platform.delta_time;
+        rotate_orbit_camera_azimuth(camera, radians(adjusted_mouse_diff_x));
+        rotate_orbit_camera_polar(camera, radians(-adjusted_mouse_diff_y));
+        
+        v3 camera_pos = orbit_camera_eye(camera);
+        v3 new_camera_front = normalize(camera->target - camera_pos);
+        basis_from_front(&camera->basis, new_camera_front);
+    }
 }
 
 
 void zoom_orbit_camera(Orbit_Camera *camera, f32 zoom_distance) {
+    assert(camera->zoom_speed > 0);
     camera->position.radius -= zoom_distance * camera->zoom_speed * Platform.delta_time;
 }
 
 
-mat4 lookAt_orbit_camera(Orbit_Camera *camera, v3 target) {
-    v3 camera_pos = orbit_camera_eye(camera, target);
-    mat4 result = lookAt(camera_pos, target, UP);
+mat4 lookAt_orbit_camera(Orbit_Camera *camera) {
+    v3 camera_pos = orbit_camera_eye(camera);
+    mat4 result = lookAt(camera_pos, camera->target, UP);
     return result;
 }
 
@@ -93,6 +98,8 @@ void attach_orbit_camera(Orbit_Camera *camera, v3 target_pos, v3 target_front, f
 
 
 void update_orbit_camera(Orbit_Camera *camera, v3 target) {
+    camera->target = target;
+    
     // if a ui window is hovered by the mouse, don't let mouse interact with the camera
     if(!ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow)) {
         if(Platform.input_state.mouse_scroll_delta)
@@ -101,14 +108,13 @@ void update_orbit_camera(Orbit_Camera *camera, v3 target) {
         if(is_mouse_button_pressed(GLFW_MOUSE_BUTTON_LEFT) || is_mouse_button_pressed(GLFW_MOUSE_BUTTON_RIGHT)) {
             if(!zero_vector(Platform.input_state.mouse_diff)) {
                 rotate_orbit_camera(camera, Platform.input_state.mouse_diff);
-                v3 camera_pos = orbit_camera_eye(camera, target);
+                v3 camera_pos = orbit_camera_eye(camera);
                 v3 camera_front = normalize(target - camera_pos);
                 basis_from_front(&camera->basis, camera_front);
             }
         }
     }
 }
-
 
 
 //
