@@ -1,12 +1,14 @@
-#include "D:\Library\glm\glm\glm.hpp"
-#include "D:\Library\glm\glm\gtc\constants.hpp"
-#include "D:\Library\glm\glm\gtc\matrix_transform.hpp"
+//#include <ft2build.h>
+//#include FT_FREETYPE_H
+#include <glm/glm.hpp>
+#include "glm/gtc/constants.hpp"
+#include "glm/gtc/matrix_transform.hpp"
 
 #include "win32_platform.h"
-#include <GLFW/glfw3.h>
-#include "imgui/imgui.h"
-#include "imgui/imgui_impl_glfw.h"
-#include "imgui/imgui_impl_opengl3.h"
+#include "GLFW/glfw3.h"
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
 
 // NOTE(lmk): Some library, I think GLM, includes cassert, so we have to undefine it
 #undef assert
@@ -28,6 +30,7 @@ bool get_next_input_event(Input_Event *event);
 #include "tweak.h"
 #include "camera.cpp"
 #include "editor.cpp"
+//#include "font.cpp"
 
 #include "app.h"
 #include "app.cpp"

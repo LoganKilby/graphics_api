@@ -1,5 +1,3 @@
-
-
 void save_scene_data(Scene *scene) {
     cfile_write(DEBUG_SCENE_NAME, scene, sizeof(Scene));
 }
