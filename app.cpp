@@ -238,9 +238,8 @@ void update_and_render(void *platform_memory) {
         
         // if a ui window is hovered by the mouse, don't let mouse interact with the camera
         if(!ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow)) {
-            if(is_mouse_button_pressed(GLFW_MOUSE_BUTTON_LEFT)) {
+            if(is_mouse_button_pressed(GLFW_MOUSE_BUTTON_LEFT)) 
                 rotate_orbit_camera(active_camera, Platform.input_state.mouse_diff);
-            }
             
             if(is_mouse_button_pressed(GLFW_MOUSE_BUTTON_RIGHT)) 
                 pan_orbit_camera(active_camera, Platform.input_state.mouse_diff);
