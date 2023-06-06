@@ -1,18 +1,30 @@
-bool intialize_freetype(FT_Library *ft) {
-    if(FT_Init_FreeType(ft)) {
-        fprintf(stderr, "FreeType::failed to initialize.\n");
-        return false;
-    }
-    
-    return true;
-}
+struct Font_Atlas {
+    int pixel_size;
+};
 
-bool load_font(FT_Library freetype, FT_Face *face, char *font_name) {
-    int face_index = 0;
-    if(FT_New_Face(freetype, font_name, face_index, face)) {
-        fprintf(stderr, "FreeType::failed to load font %s\n", font_name);
-        return false;
+
+void load_font_atlas(char *font_file_path, int pixel_size) {
+    // TODO(lmk): may want to limit the pixel size
+    int max_texture_size;
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_texture_size);
+    
+    FT_Library library;
+    if(FT_Init_FreeType(&library)) {
+        fail("FreeType::FT_Init_FreeType(): failed to initialize library");
+        return;
     }
     
-    return true;
+    FT_Face face;
+    if(FT_New_Face(library, font_file_path, 0, &face)) {
+        fail("FreeType::FT_New_Face(): failed to load font");
+    }
+    
+    int num_faces = face->num_faces;
+    int num_glyphs = face->num_glyphs;
+    int face_index = face->face_index;
+    
+    FT_Set_Pixel_Sizes(face, 0, pixel_size);
+    
+    Font_Atlas result = {};
+    result.pixel_size = pixel_size;
 }

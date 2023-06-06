@@ -3,11 +3,13 @@
 #ifndef DEFINES_H
 #define DEFINES_H
 
+#define fail(msg) fprintf(stderr, "%s(%d): failed: %s\n", __FUNCTION__, __LINE__, msg); assert(0)
+
 #undef assert
 #ifdef DEBUG
 #define assert(expression) if(!(expression)){ *(int*)0 = 0; }
 #else
-#define assert(expression) if(!(expression)) { fprintf(stderr, "Release Assertion Failed: %s(%d)", __FUNCTION__, __LINE__); }
+#define assert(expression) if(!(expression)) { fail("Release Assertion Failed"); }
 #endif
 
 #include "stdint.h"

@@ -1,5 +1,5 @@
-//#include <ft2build.h>
-//#include FT_FREETYPE_H
+#include <ft2build.h>
+#include FT_FREETYPE_H
 #include <glm/glm.hpp>
 #include "glm/gtc/constants.hpp"
 #include "glm/gtc/matrix_transform.hpp"
@@ -30,7 +30,7 @@ bool get_next_input_event(Input_Event *event);
 #include "tweak.h"
 #include "camera.cpp"
 #include "editor.cpp"
-//#include "font.cpp"
+#include "font.cpp"
 
 #include "app.h"
 #include "app.cpp"

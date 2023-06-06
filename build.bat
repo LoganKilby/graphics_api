@@ -12,10 +12,10 @@ set glew_include_dir=%code%\external\glew-2.1.0
 set glfw_include_dir=%code%\external\glfw-3.3.8\include
 set imgui_include_dir=%code%\external\imgui-1.89.5
 set glm_include_dir=%code%\external\glm-0.9.9.8
-set freetype_include_dir=%code%\external\freetype-2.13.0\include
+set freetype_include_dir=%code%\external\freetype-2.13.0\
 
-set libs=User32.lib Opengl32.lib Gdi32.lib  glew32.lib glfw3dll.exp glfw3dll.lib imgui*.obj
-set includes=/I%glew_include_dir% /I%shader_dir% /I%glfw_include_dir% /I%glm_include_dir% /I%imgui_include_dir%
+set libs=User32.lib Opengl32.lib Gdi32.lib  glew32.lib glfw3dll.exp glfw3dll.lib imgui*.obj freetype.lib
+set includes=/I%glew_include_dir% /I%shader_dir% /I%glfw_include_dir% /I%glm_include_dir% /I%imgui_include_dir% /I%freetype_include_dir%
 
 set opts=-DDEBUG -D_CRT_SECURE_NO_WARNINGS -FC -GR- -EHa- -nologo -Od -Zo -Oi -fp:fast -fp:except- -Gm- -GR- -EHa- -WX -W4 -wd4201 -wd4100 -wd4189 -wd4505 -wd4127 -FC -Z7 %includes%
 

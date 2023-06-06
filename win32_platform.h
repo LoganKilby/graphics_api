@@ -3,8 +3,8 @@
 #ifndef WIN32_PLATFORM_H
 #define WIN32_PLATFORM_H
 
-#include "defines.h"
 #include "stdio.h" // for console output
+#include "defines.h"
 #include "Windows.h"
 #include "Windowsx.h" // GET_X_PARAM, GET_Y_PARAM
 #include "GL/glew.h"
@@ -14,7 +14,7 @@
 #include "opengl_utility/debug.h"
 #include "../cfile/cfile.h"
 
-#define DEBUG_WORKING_DIR "D:/GitHub/graphics_api/data"
+#define DEBUG_WORKING_DIR "../../data"
 #define os_read_entire_file(file_name, bytes_read) win32_read_entire_file(file_name, bytes_read)
 #define APP_DLL_NAME "app.dll"
 #define APP_DLL_NAME_COPY "app.copy.dll"
