@@ -20,7 +20,6 @@ set includes=/I%glew_include_dir% /I%shader_dir% /I%glfw_include_dir% /I%glm_inc
 
 set opts=-DDEBUG -D_CRT_SECURE_NO_WARNINGS -FC -GR- -EHa- -nologo -Od -Zo -Oi -fp:fast -fp:except- -Gm- -GR- -EHa- -WX -W4 -wd4201 -wd4100 -wd4189 -wd4505 -wd4127 -FC -Z7 %includes%
 
-REM options for building a dll
 REM pushd dll
 REM cl /LDd %debug_opts% %code%\app.cpp /link /LIBPATH:%lib_dir% %libs%
 REM echo Copying dll build files to platform directories...
@@ -28,7 +27,8 @@ REM xcopy /s/y/v/q %cd%\app.* %glfw_dir%
 REM xcopy /s/y/v/q %cd%\app.* %win32_dir%
 REM popd
 
-pushd build/glfw
+pushd build
+pushd glfw
 cl %opts% %code%\glfw_win32_main.cpp -Feapp_glfw /link /LIBPATH:%lib_dir% %libs% 
 popd
 popd

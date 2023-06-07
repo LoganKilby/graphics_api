@@ -42,7 +42,7 @@ struct GL_Texture2D {
 
 struct GL_Image {
     GL_Image_Extension type;
-    unsigned char *data;
+    unsigned char *pixels;
     int width;
     int height;
     int channels;
@@ -52,7 +52,7 @@ struct GL_Image {
 GL_Texture2D gl_texture_2d(GL_Image *image) {
     GL_Texture2D result = {};
     
-    if(image->data) {
+    if(image->pixels) {
         result.width = image->width;
         result.height = image->height;
         
@@ -66,11 +66,11 @@ GL_Texture2D gl_texture_2d(GL_Image *image) {
         
         switch(image->type) {
             case JPEG: {
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image->width, image->height, 0, GL_RGB, GL_UNSIGNED_BYTE, image->data);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image->width, image->height, 0, GL_RGB, GL_UNSIGNED_BYTE, image->pixels);
             } break;
             
             case PNG: {
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image->width, image->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image->data);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image->width, image->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image->pixels);
             } break;
             
             default: {
@@ -112,20 +112,20 @@ GL_Image gl_load_image(char *file, int required_comp = 0) {
     GL_Image result = {};
     result.type = gl_get_image_file_extension(file);
     gl_assert(result.type != INVALID_EXTENSION);
-    result.data = stbi_load(file, &result.width, &result.height, &result.channels, required_comp);
+    result.pixels = stbi_load(file, &result.width, &result.height, &result.channels, required_comp);
     return result;
 }
 
 
 void gl_free_image(GL_Image *image) {
-    free(image->data);
+    free(image->pixels);
     *image = {};
 }
 
 
 GL_Texture2D gl_texture_2d(char *filename) {
     GL_Image image = gl_load_image(filename);
-    gl_assert(image.data);
+    gl_assert(image.pixels);
     GL_Texture2D result = gl_texture_2d(&image);
     gl_free_image(&image);
     return result;

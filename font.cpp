@@ -1,4 +1,10 @@
+#define STB_RECT_PACK_IMPLEMENTATION
+#define STBRP_ASSERT assert
 #include "stb_rect_pack.h"
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#define STBIW_ASSERT assert
+#include "stb_image_write.h"
 
 struct Font_Atlas {
     int pixel_size;
@@ -10,26 +16,28 @@ struct Glyph_Dimensions {
 };
 
 
-Glyph_Rect *gather_glyph_rects(FT_Face face, int *count) {
-    *count = 0;
+Glyph_Dimensions *gather_glyph_dimensions(FT_Face face, u32 *count) {
+    STBRP_ASSERT(0);
     
-    int num_glyphs = face.num_glyphs;
+    *count = 0;
+    int num_glyphs = face->num_glyphs;
     int glyphs_added = 0;
-    Glyph_Rect *result = (Glyph_Dimensions *)malloc(sizeof(Glyph_Dimensions) * num_glyphs);
+    Glyph_Dimensions *result = (Glyph_Dimensions *)malloc(sizeof(Glyph_Dimensions) * num_glyphs);
     memset(result, 0, sizeof(Glyph_Dimensions) * num_glyphs);
+    
+    printf("%d\n", num_glyphs);
     
     for(int glyph_index = 0; glyph_index < num_glyphs; ++glyph_index) {
         if(FT_Load_Glyph(face, glyph_index, FT_LOAD_BITMAP_METRICS_ONLY) == 0) {
-            result[glyph_index].width = face.glyph_slot;
+            result[glyph_index].width;
             result[glyph_index].height;
         } else {
             assert(0); // a glyph didn't have a bitmap.. is that normal?
         }
     }
     
-    
+    return result;
 }
-
 
 void create_font_atlas(char *font_file_path, int pixel_size) {
     // TODO(lmk): may want to limit the pixel size
@@ -47,12 +55,27 @@ void create_font_atlas(char *font_file_path, int pixel_size) {
         fail("FreeType::FT_New_Face(): failed to load font");
     }
     
-    int num_faces = face->num_faces;
-    int num_glyphs = face->num_glyphs;
-    int face_index = face->face_index;
+    //u32 glyph_count;
+    //Glyph_Dimensions *glyph_dims = gather_glyph_dimensions(face, &glyph_count);
     
-    assert(pixel_size >= 1);
+    pixel_size = 64;
     FT_Set_Pixel_Sizes(face, 0, pixel_size);
+    
+    int char_index = FT_Get_Char_Index(face, 'M');
+    assert(FT_Load_Glyph(face, char_index, FT_LOAD_DEFAULT) == 0);
+    assert(FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL) == 0);
+    FT_Bitmap *bitmap = &face->glyph->bitmap;
+    assert(bitmap->width && bitmap->rows);
+    
+    GL_Image image = {};
+    u32 image_size = bitmap->rows * bitmap->width * bitmap->pitch;
+    image.pixels = (unsigned char *)malloc(image_size);
+    image.width = bitmap->width;
+    image.height = bitmap->rows;
+    memcpy(image.pixels, bitmap->buffer, image_size);
+    
+    int stride_in_bytes = bitmap->pitch / bitmap->width;
+    stbi_write_png("m.png", image.width, image.height, 4, image.pixels, stride_in_bytes);
     
     Font_Atlas result = {};
     result.pixel_size = pixel_size;

@@ -203,7 +203,7 @@ void update_and_render(void *platform_memory) {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         
         // FreeType
-        load_font_atlas("fonts/consola.ttf", 16);
+        create_font_atlas("fonts/consola.ttf", 16);
         
         app_state->scene.player.position = v3(0, 0, 0);
         
