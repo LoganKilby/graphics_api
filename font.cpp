@@ -70,12 +70,29 @@ void create_font_atlas(char *font_file_path, int pixel_size) {
     GL_Image image = {};
     u32 image_size = bitmap->rows * bitmap->width * bitmap->pitch;
     image.pixels = (unsigned char *)malloc(image_size);
+    
+    struct RGBA32 {
+        unsigned char r;
+        unsigned char g;
+        unsigned char b;
+        unsigned char a;
+    };
+    
+    
+    for(u32 i = 0; i < bitmap->width * bitmap->rows; ++i) {
+        RGBA32 *pixel = (RGBA32 *)&image.pixels[i * 4];
+        pixel->r = bitmap->buffer[i];
+        pixel->g = bitmap->buffer[i];
+        pixel->b = bitmap->buffer[i];
+        pixel->a = 255;
+    }
+    
     image.width = bitmap->width;
     image.height = bitmap->rows;
     memcpy(image.pixels, bitmap->buffer, image_size);
     
     int stride_in_bytes = bitmap->pitch / bitmap->width;
-    stbi_write_png("m.png", image.width, image.height, 4, image.pixels, stride_in_bytes);
+    assert(stbi_write_png("m.png", image.width, image.height, 8, image.pixels, stride_in_bytes));
     
     Font_Atlas result = {};
     result.pixel_size = pixel_size;
