@@ -3,7 +3,7 @@
 #ifndef DEFINES_H
 #define DEFINES_H
 
-#define fail(msg) fprintf(stderr, "%s(%d): failed: %s\n", __FUNCTION__, __LINE__, msg); assert(0)
+#define fail(msg) fprintf(stderr, "%s(%d): failed: %s\n", __FUNCTION__, __LINE__, msg); fflush(stderr); assert(0);
 
 #undef assert
 #ifdef DEBUG

@@ -1,3 +1,12 @@
+static GLuint gl_compile_shader(char *file_path, GLenum type) {
+    u32 src_length;
+    char *src = (char *)os_read_entire_file(file_path, &src_length);
+    GLuint result = gl_compile_shader(src, src_length, type);
+    free(src);
+    return result;
+}
+
+
 void save_scene_data(Scene *scene) {
     cfile_write(DEBUG_SCENE_NAME, scene, sizeof(Scene));
 }
@@ -180,18 +189,17 @@ void update_and_render(void *platform_memory) {
         gl_vertex_buffer_3f3f(&app_state->test_vao, &app_state->test_vbo);
         GL_Utility_Compiled_Shaders sh = {};
         
-        u32 src_size;
-        char *vert_source = (char *)os_read_entire_file("shaders/vertex3f3f.vert", &src_size);
-        sh.vert = gl_compile_shader(vert_source, src_size, GL_VERTEX_SHADER);
-        char *frag_source = (char *)os_read_entire_file("shaders/vertex3f3f.frag", &src_size);
-        sh.frag = gl_compile_shader(frag_source, src_size, GL_FRAGMENT_SHADER);
+        sh.vert = gl_compile_shader("shaders/vertex3f3f.vert", GL_VERTEX_SHADER);
+        sh.frag = gl_compile_shader("shaders/vertex3f3f.frag", GL_FRAGMENT_SHADER);
         app_state->test_program = gl_link_program(&sh);
         
-        vert_source = (char *)os_read_entire_file("shaders/v3f_uv2f.vert", &src_size);
-        sh.vert = gl_compile_shader(vert_source, src_size, GL_VERTEX_SHADER);
-        frag_source = (char *)os_read_entire_file("shaders/texture_mix_v3f_uv2f.frag", &src_size);
-        sh.frag = gl_compile_shader(frag_source, src_size, GL_FRAGMENT_SHADER);
+        sh.vert = gl_compile_shader("shaders/v3f_uv2f.vert", GL_VERTEX_SHADER);
+        sh.frag = gl_compile_shader("shaders/texture_mix_v3f_uv2f.frag", GL_FRAGMENT_SHADER);
         app_state->texture_mix_program = gl_link_program(&sh);
+        
+        sh.vert = gl_compile_shader("shaders/font_shader.vert", GL_VERTEX_SHADER);
+        sh.frag = gl_compile_shader("shaders/font_shader.frag", GL_FRAGMENT_SHADER);
+        app_state->font_program = gl_link_program(&sh);
         
         gl_array_buffer_3f2f(&app_state->v3f_uv2f);
         app_state->alexstrasza = gl_texture_2d("opengl_utility/textures/alexstrasza.jpg");
@@ -203,7 +211,9 @@ void update_and_render(void *platform_memory) {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         
         // FreeType
-        create_font_atlas("fonts/consola.ttf", 16);
+        //create_font_atlas("fonts/consola.ttf", 16);
+        //create_font_atlas("fonts/consola.ttf", 48);
+        load_ascii_textures(&app_state->font, "fonts/consola.ttf", 48);
         
         app_state->scene.player.position = v3(0, 0, 0);
         
@@ -291,6 +301,9 @@ void update_and_render(void *platform_memory) {
     learnoepngl_camera(app_state, &projection, &view);
     gl_cube(app_state->scene.player.position, &app_state->scene.player.basis, v4(1, 1, 1, 1));
     gl_basis(app_state->scene.player.position, &app_state->scene.player.basis);
+    
+    glm::mat4 projection_2d = glm::ortho(0.0f, (float)viewport.width, 0.0f, (float)viewport.height);
+    render_font(&app_state->font, "test", 100, 100, 1, &projection_2d, app_state->font_program);
     
     //
     // Render editor
