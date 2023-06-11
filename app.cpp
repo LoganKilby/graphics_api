@@ -214,6 +214,7 @@ void update_and_render(void *platform_memory) {
         //create_font_atlas("fonts/consola.ttf", 16);
         //create_font_atlas("fonts/consola.ttf", 48);
         load_ascii_textures(&app_state->font, "fonts/consola.ttf", 48);
+        create_font_atlas("fonts/consola.ttf", 48);
         
         app_state->scene.player.position = v3(0, 0, 0);
         
@@ -303,11 +304,15 @@ void update_and_render(void *platform_memory) {
     gl_basis(app_state->scene.player.position, &app_state->scene.player.basis);
     
     glm::mat4 projection_2d = glm::ortho(0.0f, (float)viewport.width, 0.0f, (float)viewport.height);
-    render_font(&app_state->font, "test", 100, 100, 1, &projection_2d, app_state->font_program);
+    
+    int frames_per_second = (int)(1000.0f / Platform.delta_time);
+    char str[100] = {};
+    sprintf(str, "FPS: %d", Platform.average_fps);
+    render_font(&app_state->font, str, 25, 25, 1.0f, &projection_2d, app_state->font_program);
     
     //
     // Render editor
-    // 
+    // Is 'if' still a problem, or 'If'?
     ImGui_BeginFrame();
     bool show_demo_window;
     ImGui::ShowDemoWindow(&show_demo_window);

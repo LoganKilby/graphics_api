@@ -17,6 +17,7 @@
 struct Platform_Stuff {
     GLFWwindow *window;
     float delta_time;
+    int average_fps;
     Input_State input_state;
 } global Platform;
 
@@ -149,11 +150,22 @@ int main() {
     glfwGetCursorPos(Platform.window, &cursor_x, &cursor_y);
     Platform.input_state.mouse_pos = v2(cursor_x, cursor_y);
     
+    float ms_sum = 0;
     float last_frame_time = 0;
+    int frame_count = 0;
     while(!glfwWindowShouldClose(Platform.window)) {
+        ++frame_count;
         float frame_time = (float)glfwGetTime();
         Platform.delta_time = frame_time - last_frame_time;
         last_frame_time = frame_time;
+        
+        ms_sum += Platform.delta_time;
+        if(ms_sum > 0.5) {
+            float average_frame_time = ms_sum / frame_count;
+            Platform.average_fps = (int)(1000.0f / average_frame_time);
+            ms_sum = 0;
+            frame_count = 0;
+        }
         
         glfwGetCursorPos(Platform.window, &cursor_x, &cursor_y);
         Platform.input_state.mouse_diff = v2(cursor_x - Platform.input_state.mouse_pos.x, Platform.input_state.mouse_pos.y - cursor_y);

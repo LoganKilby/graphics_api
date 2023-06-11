@@ -6,6 +6,7 @@
 #ifdef GLM_VERSION
 using namespace glm;
 typedef vec2 v2;
+typedef ivec2 v2i;
 typedef vec3 v3;
 typedef vec4 v4;
 #define PI glm::pi<float>()

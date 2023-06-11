@@ -2,7 +2,6 @@
 #define STBRP_ASSERT assert
 #include "stb_rect_pack.h"
 
-
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define STBIW_ASSERT assert
 #include "stb_image_write.h"
@@ -13,30 +12,17 @@ struct Font_Atlas {
 };
 
 
-struct Glyph_Dimensions {
-    int width;
-    int height;
-};
-
-
-Glyph_Dimensions *gather_alphanumeric_glyph_dimensions(FT_Face face, u32 *count) {
-    Glyph_Dimensions *result = (Glyph_Dimensions *)malloc(sizeof(Glyph_Dimensions) * 128);
-    memset(result, 0, sizeof(Glyph_Dimensions) * 128);
-    
-    // TODO(lmk): figure out spacing for new line and space character
-    int bbox_width = (face->bbox.xMax - face->bbox.xMin) >> 6;
-    int bbox_height = (face->bbox.yMax - face->bbox.yMin) >> 6;
+// NOTE(lmk): Only loading ascii 0-128. Could trivially support more, I just don't have any use for them.
+stbrp_rect *gather_glyph_rects(FT_Face face, u32 *count) {
+    stbrp_rect *result = (stbrp_rect *)malloc(sizeof(stbrp_rect) * 128);
+    memset(result, 0, sizeof(stbrp_rect) * 128);
     
     int glyphs_loaded = 0;
     for(int ascii_char_code = 0; ascii_char_code < 128; ++ascii_char_code) {
         if(FT_Load_Char(face, ascii_char_code, FT_LOAD_BITMAP_METRICS_ONLY) == 0) {
-            //assert(face->glyph->metrics.width > 0);
-            //assert(face->glyph->metrics.height > 0);
-            //result[result_index].width = face->glyph->metrics.width >> 6;
-            //result[result_index].height = face->glyph->metrics.height >> 6;
             if(face->glyph->bitmap.width && face->glyph->bitmap.rows) {
-                result[glyphs_loaded].width = face->glyph->bitmap.width;
-                result[glyphs_loaded].height = face->glyph->bitmap.rows;
+                result[glyphs_loaded].w = face->glyph->bitmap.width;
+                result[glyphs_loaded].h = face->glyph->bitmap.rows;
                 ++glyphs_loaded;
             } else {
                 fprintf(stderr, "FreeType::FT_Load_Char(): glyph does not have bitmap: %c\n", ascii_char_code);
@@ -46,20 +32,56 @@ Glyph_Dimensions *gather_alphanumeric_glyph_dimensions(FT_Face face, u32 *count)
         }
     }
     
+    realloc(result, sizeof(stbrp_rect) * glyphs_loaded);
+    
     *count = glyphs_loaded;
     
     return result;
 }
 
+
+struct Kern_Left {
+    v2i right[128];
+};
+
+struct Kern_Right {
+    v2i left[128];
+};
+
+struct Kerning_Table {
+    Kern_Left left[128];
+};
+
 struct Font {
     u32 tex_id[128];
-    v2 size[128];
-    v2 bearing[128];
+    v2i size[128];
+    v2i bearing[128];
     u32 advance[128];
+    Kerning_Table kerning;
     
     u32 vbo;
     u32 vao;
 };
+
+
+void get_lr_kerning_distance(FT_Face face, Kerning_Table *table, char c1) {
+    if(FT_HAS_KERNING(face)) {
+        FT_Vector delta;
+        int g1, g2;
+        
+        g1 = FT_Get_Char_Index(face, c1);
+        
+        for(int c2 = 0; c2 < 128; ++c2) {
+            g2 = FT_Get_Char_Index(face, c2);
+            
+            FT_Get_Kerning(face, g1, g2, FT_KERNING_DEFAULT, &delta);
+            table->left[c1].right[c2] = { delta.x >> 6, delta.y >> 6 };
+            
+            FT_Get_Kerning(face, g2, g1, FT_KERNING_DEFAULT, &delta);
+            table->left[c2].right[c1] = { delta.x >> 6, delta.y >> 6 };
+        }
+    }
+}
 
 
 void load_ascii_textures(Font *font, char *font_file_path, int pixel_size) {
@@ -104,9 +126,13 @@ void load_ascii_textures(Font *font, char *font_file_path, int pixel_size) {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         
-        font->size[c] = v2(face->glyph->bitmap.width, face->glyph->bitmap.rows);
-        font->bearing[c] = v2(face->glyph->bitmap_left, face->glyph->bitmap_top);
-        font->advance[c] = face->glyph->advance.x;
+        font->size[c] = v2i(face->glyph->bitmap.width, face->glyph->bitmap.rows);
+        font->bearing[c] = v2i(face->glyph->bitmap_left, face->glyph->bitmap_top);
+        
+        assert(face->glyph->advance.x >= 0);
+        font->advance[c] = (u32)face->glyph->advance.x >> 6;
+        
+        get_lr_kerning_distance(face, &font->kerning, c);
     }
     
     glBindTexture(GL_TEXTURE_2D, 0);
@@ -144,17 +170,22 @@ void create_font_atlas(char *font_file_path, int pixel_size) {
     
     FT_Set_Pixel_Sizes(face, 0, pixel_size);
     
-    //u32 dim_count;
-    //Glyph_Dimensions *dims = gather_alphanumeric_glyph_dimensions(face, &dim_count);
+    u32 rect_count;
+    stbrp_rect *dims = gather_glyph_rects(face, &rect_count);
+    stbrp_context context = {};
+    
+    
     
     int glyph_index = FT_Get_Char_Index(face, 32);
     assert(FT_Load_Char(face, 32, FT_LOAD_RENDER) == 0);
-    //assert(FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL) == 0);
     FT_Bitmap *bitmap = &face->glyph->bitmap;
     assert(stbi_write_png("m.png", bitmap->width, bitmap->rows, 1, bitmap->buffer, bitmap->pitch));
     
     Font_Atlas result = {};
     result.pixel_size = pixel_size;
+    
+    FT_Done_Face(face);
+    FT_Done_FreeType(library);
 }
 
 
@@ -168,37 +199,43 @@ void render_font(Font *font, char *str, float x, float y, float scale, mat4 *pro
     
     // iterate through all characters
     size_t length = strlen(str);
+    char previous_char = -1;
+    char current_char;
     for (size_t str_index = 0; str_index < length; ++str_index)
     {
-        int c = str[str_index];
-        float xpos = x + font->bearing[str[c]].x * scale;
-        float ypos = y - (font->size[c].y - font->bearing[c].y) * scale;
+        current_char = str[str_index];
+        float xpos = x + font->bearing[current_char].x * scale;
+        float ypos = y - (font->size[current_char].y - font->bearing[current_char].y) * scale;
         
-        float w = font->size[c].x * scale;
-        float h = font->size[c].y * scale;
+        float w = font->size[current_char].x * scale;
+        float h = font->size[current_char].y * scale;
         
         // update VBO for each character
         float vertices[6][4] = {
-            { xpos,     ypos + h,   0.0f, 0.0f },            
+            { xpos,     ypos + h,   0.0f, 0.0f },
             { xpos,     ypos,       0.0f, 1.0f },
             { xpos + w, ypos,       1.0f, 1.0f },
             
             { xpos,     ypos + h,   0.0f, 0.0f },
             { xpos + w, ypos,       1.0f, 1.0f },
-            { xpos + w, ypos + h,   1.0f, 0.0f }           
+            { xpos + w, ypos + h,   1.0f, 0.0f }
         };
         
         // render glyph texture over quad
-        glBindTexture(GL_TEXTURE_2D, font->tex_id[c]);
+        glBindTexture(GL_TEXTURE_2D, font->tex_id[current_char]);
         // update content of VBO memory
         glBindBuffer(GL_ARRAY_BUFFER, font->vbo);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices); 
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         // render quad
         glDrawArrays(GL_TRIANGLES, 0, 6);
         // now advance cursors for next glyph (note that advance is number of 1/64 pixels)
-        x += (font->advance[c] >> 6) * scale; // bitshift by 6 to get value in pixels (2^6 = 64)
+        x += font->advance[current_char] * scale; // bitshift by 6 to get value in pixels (2^6 = 64)
+        
+        if(previous_char != -1) 
+            x += font->kerning.left[previous_char].right[current_char].x;
     }
+    
     glBindVertexArray(0);
     glBindTexture(GL_TEXTURE_2D, 0);
 }
