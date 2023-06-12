@@ -142,9 +142,11 @@ void learnoepngl_camera(Application_State *app_state, mat4 *projection, mat4 *vi
     glUniform1i(tex0_location, 0);
     glUniform1i(tex1_location, 1);
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, app_state->gl_utility_context.wall.id);
+    glBindTexture(GL_TEXTURE_2D, app_state->font.atlas_tex_id);
+    //glBindTexture(GL_TEXTURE_2D, app_state->gl_utility_context.wall.id);
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, app_state->gl_utility_context.awesome_face.id);
+    glBindTexture(GL_TEXTURE_2D, app_state->font.atlas_tex_id);
+    //glBindTexture(GL_TEXTURE_2D, app_state->gl_utility_context.awesome_face.id);
     
     //
     // Draw Cubes
@@ -213,8 +215,8 @@ void update_and_render(void *platform_memory) {
         // FreeType
         //create_font_atlas("fonts/consola.ttf", 16);
         //create_font_atlas("fonts/consola.ttf", 48);
-        load_ascii_textures(&app_state->font, "fonts/consola.ttf", 48);
-        create_font_atlas("fonts/consola.ttf", 48);
+        //load_ascii_textures(&app_state->font, "fonts/consola.ttf", 48);
+        create_font_atlas(&app_state->font, "fonts/consola.ttf", 48);
         
         app_state->scene.player.position = v3(0, 0, 0);
         

@@ -29,8 +29,12 @@ struct __FILETIME {
     FILETIME write;
 };
 
+// TODO(lmk): I thought I once saw a way to do this in one line instead of using multiple macros...
+#define __merge(a, b) a##b
+#define _merge(a, b) __merge(a, b)
+
 #ifdef DEBUG
-#define TIMED_BLOCK High_Resolution_Timer(__FUNCTION__)
+#define TIMED_BLOCK High_Resolution_Interval _merge(hri, __LINE__)(__FUNCTION__)
 #define debug_log(msg) OutputDebugStringA(msg)
 #define load_app_dll(dll_out, proc_address_out) win32_load_app_dll(APP_DLL_NAME_COPY, dll_out, proc_address_out)
 #define debug_hot_reload_app_dll(dll_handle, proc_address) win32_hot_reload(dll_handle, proc_address)
@@ -57,32 +61,35 @@ internal void win32_process_message_queue(Input_Event_List *event_list);
 #define WAS_DOWN(lParam) ((lParam & (1 << 30)) != 0)
 #define IS_DOWN(lParam) ((lParam & (1UL << 31)) == 0)
 
-class High_Resolution_Timer {
-    public:
-    High_Resolution_Timer(char *function_name);
-    ~High_Resolution_Timer();
-    char *caller;
-    LARGE_INTEGER start;
-    LARGE_INTEGER frequency;
-};
-
-
-High_Resolution_Timer::High_Resolution_Timer(char *function_name) {
-    QueryPerformanceFrequency(&frequency);
-    QueryPerformanceCounter(&start);
-    caller = function_name;
-}
-
-
-High_Resolution_Timer::~High_Resolution_Timer() {
-    LARGE_INTEGER end;
-    QueryPerformanceCounter(&end);
+class High_Resolution_Interval
+{
+	const char* function_name;
     
-    LARGE_INTEGER elapsed_microseconds = {};
-    elapsed_microseconds.QuadPart = end.QuadPart - start.QuadPart;
-    LONGLONG ms = (elapsed_microseconds.QuadPart * 1000000) / frequency.QuadPart;
-}
-
+	LARGE_INTEGER starting_time;
+	LARGE_INTEGER frequency;
+    
+    public: 
+	High_Resolution_Interval(const char* caller)
+	{
+		function_name = caller;
+		
+		QueryPerformanceFrequency(&frequency);
+		QueryPerformanceCounter(&starting_time);
+	}
+    
+	~High_Resolution_Interval()
+	{
+		LARGE_INTEGER endingTime;
+		QueryPerformanceCounter(&endingTime);
+        
+		LARGE_INTEGER elapsedMicroseconds;
+		elapsedMicroseconds.QuadPart = endingTime.QuadPart - starting_time.QuadPart;
+		elapsedMicroseconds.QuadPart *= 1000000;
+		elapsedMicroseconds.QuadPart /= frequency.QuadPart;
+        
+		fprintf(stderr, "%s : %.3Lf ms\n", function_name, elapsedMicroseconds.QuadPart / 1000.0l);
+    }
+};
 
 u8 *win32_read_entire_file(char *file_name, u32 *bytes_read_out) {
     HANDLE file_handle = CreateFileA(file_name, GENERIC_READ, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);

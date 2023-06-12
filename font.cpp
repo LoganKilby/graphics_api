@@ -23,6 +23,7 @@ stbrp_rect *gather_glyph_rects(FT_Face face, u32 *count) {
             if(face->glyph->bitmap.width && face->glyph->bitmap.rows) {
                 result[glyphs_loaded].w = face->glyph->bitmap.width;
                 result[glyphs_loaded].h = face->glyph->bitmap.rows;
+                result[glyphs_loaded].id = ascii_char_code;
                 ++glyphs_loaded;
             } else {
                 fprintf(stderr, "FreeType::FT_Load_Char(): glyph does not have bitmap: %c\n", ascii_char_code);
@@ -53,6 +54,7 @@ struct Kerning_Table {
 };
 
 struct Font {
+    u32 atlas_tex_id;
     u32 tex_id[128];
     v2i size[128];
     v2i bearing[128];
@@ -64,7 +66,7 @@ struct Font {
 };
 
 
-void get_lr_kerning_distance(FT_Face face, Kerning_Table *table, char c1) {
+void get_lr_kerning_distance(FT_Face face, Kerning_Table *table, int c1) {
     if(FT_HAS_KERNING(face)) {
         FT_Vector delta;
         int g1, g2;
@@ -152,7 +154,80 @@ void load_ascii_textures(Font *font, char *font_file_path, int pixel_size) {
 }
 
 
-void create_font_atlas(char *font_file_path, int pixel_size) {
+void minimum_bounding_box_solver(stbrp_rect *rects, int rect_count, int *width_out, int *height_out) {
+    // (https://arxiv.org/ftp/arxiv/papers/1402/1402.0557.pdf : 3.3.1 Anytime Algorithm)
+    // 1. find a greedy solution on a bounding box whose height is equal to the tallest rectangle
+    // 2. Call containment solver
+    // 3. IF the previous attempt succeeded, or if its area is greater than the area of the best solution seen so far, decrease the width
+    // by one unit and repeat.
+    //    ELSE if the previous attemp failed, increase the height of the bounding box by one unit and repeat.
+    // 4. Terminate when the width of the bounding box is less than the width of the widest rectangle.
+    
+    // NOTE(lmk): This is reallyyy slow
+    
+    TIMED_BLOCK;
+    
+    int tallest_height = 0;
+    int widest_width = 0;
+    int width_sum = 0;
+    int height_sum = 0;
+    for(stbrp_rect *rect = rects; rect < rects + rect_count; ++rect) {
+        if(rect->h > tallest_height) tallest_height = rect->h;
+        if(rect->w > widest_width) widest_width = rect->w;
+        width_sum += rect->w;
+        height_sum += rect->h;
+    }
+    
+    int bbox_width = width_sum;
+    int bbox_height = tallest_height;
+    int bbox_area = bbox_width * bbox_height;
+    
+    int node_count = bbox_width;
+    stbrp_node *nodes = (stbrp_node *)malloc(sizeof(stbrp_node) * node_count);
+    memset(nodes, 0, sizeof(stbrp_node) * node_count);
+    stbrp_context context = {};
+    
+    int current_bbox_width = bbox_width;
+    int current_bbox_height = bbox_height;
+    int current_bbox_area = current_bbox_width * current_bbox_height;
+    
+    int smallest_area = current_bbox_area;
+    f32 smallest_diagonal = sqrtf((f32)squared(current_bbox_width) + (f32)squared(current_bbox_height));
+    int width_result = 0;
+    int height_result = 1;
+    
+    for(;;) {
+        current_bbox_area = current_bbox_width * current_bbox_height;
+        stbrp_init_target(&context, current_bbox_width, current_bbox_height, nodes, node_count);
+        
+        if(stbrp_pack_rects(&context, rects, rect_count)) {
+            f32 diagonal = sqrtf((f32)squared(current_bbox_width) + (f32)squared(current_bbox_height));
+            
+            if(diagonal < smallest_diagonal) {
+                smallest_diagonal = diagonal;
+                smallest_area = current_bbox_area;
+                width_result = current_bbox_width;
+                height_result = current_bbox_height;
+            }
+            
+            --current_bbox_width;
+        } else if (current_bbox_area > smallest_area) {
+            --current_bbox_width;
+        } else {
+            ++current_bbox_height;
+        }
+        
+        if(current_bbox_width < widest_width) break;
+    }
+    
+    stbrp_init_target(&context, width_result, height_result, nodes, node_count);
+    stbrp_pack_rects(&context, rects, rect_count);
+    *width_out = width_result;
+    *height_out = height_result;
+}
+
+
+void create_font_atlas(Font *font, char *font_file_path, int pixel_size) {
     // TODO(lmk): may want to limit the pixel size
     int max_texture_size;
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_texture_size);
@@ -171,10 +246,43 @@ void create_font_atlas(char *font_file_path, int pixel_size) {
     FT_Set_Pixel_Sizes(face, 0, pixel_size);
     
     u32 rect_count;
-    stbrp_rect *dims = gather_glyph_rects(face, &rect_count);
-    stbrp_context context = {};
+    stbrp_rect *rects = gather_glyph_rects(face, &rect_count);
     
+    // TODO(lmk): we could cache this result, or even the entire font atlas bitmap itself
+    int bbox_width, bbox_height;
+    minimum_bounding_box_solver(rects, rect_count, &bbox_width, &bbox_height);
     
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    
+    glGenTextures(1, &font->atlas_tex_id);
+    glBindTexture(GL_TEXTURE_2D, font->atlas_tex_id);
+    glTexImage2D(GL_TEXTURE_2D,
+                 0,
+                 GL_RED,
+                 bbox_width,
+                 bbox_height,
+                 0,
+                 GL_RED,
+                 GL_UNSIGNED_BYTE,
+                 0);
+    
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    
+    for(stbrp_rect *rect = rects; rect < rects + rect_count; ++rect) {
+        int ascii_code = rect->id;
+        if(FT_Load_Char(face, ascii_code, FT_LOAD_RENDER) == 0) {
+            font->size[ascii_code] = v2i(face->glyph->bitmap.width, face->glyph->bitmap.rows);
+            font->bearing[ascii_code] = v2i(face->glyph->bitmap_left, face->glyph->bitmap_top);
+            font->advance[ascii_code] = (u32)face->glyph->advance.x >> 6;
+            get_lr_kerning_distance(face, &font->kerning, ascii_code);
+            
+            // TODO(lmk): Would it be faster to create our own image and and pass to OpenGL in a single call?
+            glTexSubImage2D(GL_TEXTURE_2D, 0, rect->x, rect->y, rect->w, rect->h, GL_RED, GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer);
+        }
+    }
     
     int glyph_index = FT_Get_Char_Index(face, 32);
     assert(FT_Load_Char(face, 32, FT_LOAD_RENDER) == 0);

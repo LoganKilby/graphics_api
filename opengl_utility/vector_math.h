@@ -42,6 +42,10 @@ union v4 {
 
 #endif //GLM_VERSION
 
+
+#define squared(x) (x*x)
+
+
 struct Spherical_Coordinates {
     f32 radius;
     f32 azimuth;
