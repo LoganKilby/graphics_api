@@ -318,6 +318,8 @@ void render_font(Font *font, char *str, float x, float y, float scale, mat4 *pro
         float w = font->size[current_char].x * scale;
         float h = font->size[current_char].y * scale;
         
+        // TODO(lmk): Compute texture coordinates
+        
         // update VBO for each character
         float vertices[6][4] = {
             { xpos,     ypos + h,   0.0f, 0.0f },
