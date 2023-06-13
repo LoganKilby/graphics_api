@@ -110,7 +110,7 @@
 #include <climits>
 #include <cfloat>
 #include <limits>
-#include <cassert>
+//#include <cassert>
 #include "fwd.hpp"
 
 #include "vec2.hpp"

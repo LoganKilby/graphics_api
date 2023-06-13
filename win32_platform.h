@@ -10,10 +10,6 @@
 #include "GL/glew.h"
 #include "GL/wglew.h"
 
-#include "opengl_utility/core.h"
-#include "opengl_utility/debug.h"
-#include "../cfile/cfile.h"
-
 #define DEBUG_WORKING_DIR "../../data"
 #define os_read_entire_file(file_name, bytes_read) win32_read_entire_file(file_name, bytes_read)
 #define APP_DLL_NAME "app.dll"
@@ -45,18 +41,7 @@ struct __FILETIME {
 #define debug_hot_reload_app_dll(dll_out, proc_address_out)
 #endif
 
-#include "arena.h"
-#include "input.h"
 
-typedef void (__cdecl *Update_And_Render_Ptr)(Memory_Arena *);
-
-LRESULT CALLBACK win32_window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-internal int win32_set_pixel_format(HDC hdc);
-internal void win32_debug_enumerate_pixel_formats(HDC hdc);
-internal u32 win32_repack_key_state(WPARAM wParam);
-internal bool win32_load_app_dll(char *dll_name, HINSTANCE *dll_handle_out, Update_And_Render_Ptr *proc_address);
-internal void win32_hot_reload(HINSTANCE *loaded_dll_handle, Update_And_Render_Ptr *proc_address);
-internal void win32_process_message_queue(Input_Event_List *event_list);
 
 #define WAS_DOWN(lParam) ((lParam & (1 << 30)) != 0)
 #define IS_DOWN(lParam) ((lParam & (1UL << 31)) == 0)
@@ -120,6 +105,18 @@ u8 *win32_read_entire_file(char *file_name, u32 *bytes_read_out) {
 }
 
 
+#if 0 
+// NOTE(lmk): win32 platform code. Since this header is shared with the glfw version of the code, I'm leaving this here in case 
+// I want to reference it in the future for doing dll loading or switching back to win32.
+LRESULT CALLBACK win32_window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+internal int win32_set_pixel_format(HDC hdc);
+internal void win32_debug_enumerate_pixel_formats(HDC hdc);
+internal u32 win32_repack_key_state(WPARAM wParam);
+typedef void (__cdecl *Update_And_Render_Ptr)(Application_State *);
+internal bool win32_load_app_dll(char *dll_name, HINSTANCE *dll_handle_out, Update_And_Render_Ptr *proc_address);
+internal void win32_hot_reload(HINSTANCE *loaded_dll_handle, Update_And_Render_Ptr *proc_address);
+internal void win32_process_message_queue(Input_Event_List *event_list);
+
 internal __FILETIME win32_get_file_time(char *file_name) {
     HANDLE file_handle = CreateFileA(file_name,
                                      GENERIC_READ,
@@ -172,6 +169,7 @@ internal bool win32_load_app_dll(char *dll_name, HINSTANCE *dll_handle_out, Upda
     
     return false;
 }
+#endif
 
 
 #endif //WIN32_PLATFORM_H

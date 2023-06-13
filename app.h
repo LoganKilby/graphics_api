@@ -37,6 +37,18 @@ struct Application_State {
     u32 texture_mix_program;
     u32 font_program;
     
+    GL_Texture2D test_atlas;
+    GL_Image smile1;
+    GL_Image smile2;
+    GL_Texture2D smile1t;
+    GL_Texture2D smile2t;
+    
+    Rect smile1_rect, smile2_rect;
+    
+    GLS_Textured_Polygon textured_polygon_shader;
+    
+    GL_Texture_Rect texture_rect;
+    
     GL_Array_Buffer v3f_uv2f;
     GL_Texture2D alexstrasza;
     

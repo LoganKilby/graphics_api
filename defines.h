@@ -31,15 +31,14 @@ typedef int8_t s8;
 
 typedef float f32;
 
+#define initialize_internal(this) memset(this, 0, sizeof(*this))
+#define zero_this(this) initialize_internal(this)
+
 // converting to bytes
 #define kilobytes(kibs) kibs * 1024
 #define megabytes(megs) megs * kilobytes(1024)
 #define gigabytes(gigs) gigs * megabytes(1024)
 #define countof(array) (sizeof(array) / sizeof(array[0]))
-#define EPSILON 0.001f
-#define FULL_CIRCLE 2.0f * PI
-#define QUARTER_CIRCLE (PI / 2.0f)
-#define MAX_POLAR_ROTATION (QUARTER_CIRCLE - EPSILON)
-#define UP v3(0, 1, 0)
+
 
 #endif //DEFINES_H

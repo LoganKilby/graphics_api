@@ -6,12 +6,6 @@
 #define STBIW_ASSERT assert
 #include "stb_image_write.h"
 
-
-struct Font_Atlas {
-    int pixel_size;
-};
-
-
 // NOTE(lmk): Only loading ascii 0-128. Could trivially support more, I just don't have any use for them.
 stbrp_rect *gather_glyph_rects(FT_Face face, u32 *count) {
     stbrp_rect *result = (stbrp_rect *)malloc(sizeof(stbrp_rect) * 128);
@@ -40,29 +34,58 @@ stbrp_rect *gather_glyph_rects(FT_Face face, u32 *count) {
     return result;
 }
 
+struct GLS_Font {
+    GLuint program;
+    GLint u_sampler2D;
+    GLint u_projection;
+    //GLint u_text_color;
+    
+    GLS_Font() {
+        initialize_internal(this);
+    }
+    
+    void create() {
+        GL_Compiled_Shaders s = {};
+        s.vert = gl_compile_shader("shaders/font_shader.vert", GL_VERTEX_SHADER);
+        s.frag = gl_compile_shader("shaders/font_shader.frag", GL_FRAGMENT_SHADER);
+        program = gl_link_program(&s);
+        u_sampler2D = gl_get_uniform_location(program, "u_texture");
+        u_projection = gl_get_uniform_location(program, "u_projection");
+        //u_text_color = gl_get_uniform_location(program, "u_text_color");
+    }
+};
+
 
 struct Kern_Left {
     v2i right[128];
 };
-
 struct Kern_Right {
     v2i left[128];
 };
-
 struct Kerning_Table {
     Kern_Left left[128];
 };
 
+
+struct Font_Atlas_Texture_Location {
+    Rect bitmap; // texture atlas coordinates
+    v2i bearing;
+    int advance;
+};
+
+
+struct Font_Texture_Atlas {
+    Font_Atlas_Texture_Location location[128];
+    GL_Texture2D texture;
+};
+
+
 struct Font {
-    u32 atlas_tex_id;
-    u32 tex_id[128];
-    v2i size[128];
-    v2i bearing[128];
-    u32 advance[128];
+    Font_Texture_Atlas atlas;
+    GLS_Font shader;
+    GL_Texture_Rect texture_rect;
     Kerning_Table kerning;
-    
-    u32 vbo;
-    u32 vao;
+    int pixel_size;
 };
 
 
@@ -86,74 +109,6 @@ void get_lr_kerning_distance(FT_Face face, Kerning_Table *table, int c1) {
 }
 
 
-void load_ascii_textures(Font *font, char *font_file_path, int pixel_size) {
-    memset(font, 0, sizeof(Font));
-    
-    FT_Library library;
-    if(FT_Init_FreeType(&library)) {
-        fail("FreeType::FT_Init_FreeType(): failed to initialize library");
-        return;
-    }
-    
-    FT_Face face;
-    if(FT_New_Face(library, font_file_path, 0, &face)) {
-        fail("FreeType::FT_New_Face(): failed to load font");
-        return;
-    }
-    
-    FT_Set_Pixel_Sizes(face, 0, pixel_size);
-    
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    
-    for(unsigned char c = 0; c < 128; ++c) {
-        if(FT_Load_Char(face, c, FT_LOAD_RENDER)) {
-            fprintf(stderr, "FreeType::FT_Load_Char(): failed to load char %d\n", c);
-            continue;
-        }
-        
-        glGenTextures(1, &font->tex_id[c]);
-        glBindTexture(GL_TEXTURE_2D, font->tex_id[c]);
-        glTexImage2D(GL_TEXTURE_2D,
-                     0,
-                     GL_RED,
-                     face->glyph->bitmap.width,
-                     face->glyph->bitmap.rows,
-                     0,
-                     GL_RED,
-                     GL_UNSIGNED_BYTE,
-                     face->glyph->bitmap.buffer);
-        
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        
-        font->size[c] = v2i(face->glyph->bitmap.width, face->glyph->bitmap.rows);
-        font->bearing[c] = v2i(face->glyph->bitmap_left, face->glyph->bitmap_top);
-        
-        assert(face->glyph->advance.x >= 0);
-        font->advance[c] = (u32)face->glyph->advance.x >> 6;
-        
-        get_lr_kerning_distance(face, &font->kerning, c);
-    }
-    
-    glBindTexture(GL_TEXTURE_2D, 0);
-    
-    FT_Done_Face(face);
-    FT_Done_FreeType(library);
-    
-    glGenVertexArrays(1, &font->vao);
-    glGenBuffers(1, &font->vbo);
-    glBindVertexArray(font->vao);
-    glBindBuffer(GL_ARRAY_BUFFER, font->vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, 0, GL_DYNAMIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-}
-
-
 void minimum_bounding_box_solver(stbrp_rect *rects, int rect_count, int *width_out, int *height_out) {
     // (https://arxiv.org/ftp/arxiv/papers/1402/1402.0557.pdf : 3.3.1 Anytime Algorithm)
     // 1. find a greedy solution on a bounding box whose height is equal to the tallest rectangle
@@ -163,7 +118,7 @@ void minimum_bounding_box_solver(stbrp_rect *rects, int rect_count, int *width_o
     //    ELSE if the previous attemp failed, increase the height of the bounding box by one unit and repeat.
     // 4. Terminate when the width of the bounding box is less than the width of the widest rectangle.
     
-    // NOTE(lmk): This is reallyyy slow
+    // NOTE(lmk): This is reallyyy slow, but works for now...
     
     TIMED_BLOCK;
     
@@ -227,10 +182,9 @@ void minimum_bounding_box_solver(stbrp_rect *rects, int rect_count, int *width_o
 }
 
 
-void create_font_atlas(Font *font, char *font_file_path, int pixel_size) {
-    // TODO(lmk): may want to limit the pixel size
-    int max_texture_size;
-    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_texture_size);
+void create_font(Font *font, char *font_file_path, int pixel_size) {
+    font->shader.create();
+    font->texture_rect.create((GLS_Textured_Polygon *)&font->shader);
     
     FT_Library library;
     if(FT_Init_FreeType(&library)) {
@@ -244,6 +198,7 @@ void create_font_atlas(Font *font, char *font_file_path, int pixel_size) {
     }
     
     FT_Set_Pixel_Sizes(face, 0, pixel_size);
+    font->pixel_size = pixel_size;
     
     u32 rect_count;
     stbrp_rect *rects = gather_glyph_rects(face, &rect_count);
@@ -254,8 +209,12 @@ void create_font_atlas(Font *font, char *font_file_path, int pixel_size) {
     
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     
-    glGenTextures(1, &font->atlas_tex_id);
-    glBindTexture(GL_TEXTURE_2D, font->atlas_tex_id);
+    glGenTextures(1, &font->atlas.texture.id);
+    glBindTexture(GL_TEXTURE_2D, font->atlas.texture.id);
+    
+    font->atlas.texture.width = bbox_width;
+    font->atlas.texture.height = bbox_height;
+    
     glTexImage2D(GL_TEXTURE_2D,
                  0,
                  GL_RED,
@@ -274,9 +233,16 @@ void create_font_atlas(Font *font, char *font_file_path, int pixel_size) {
     for(stbrp_rect *rect = rects; rect < rects + rect_count; ++rect) {
         int ascii_code = rect->id;
         if(FT_Load_Char(face, ascii_code, FT_LOAD_RENDER) == 0) {
-            font->size[ascii_code] = v2i(face->glyph->bitmap.width, face->glyph->bitmap.rows);
-            font->bearing[ascii_code] = v2i(face->glyph->bitmap_left, face->glyph->bitmap_top);
-            font->advance[ascii_code] = (u32)face->glyph->advance.x >> 6;
+            font->atlas.location[ascii_code].bitmap = {
+                rect->x,
+                rect->y,
+                (int)face->glyph->bitmap.width,
+                (int)face->glyph->bitmap.rows
+            };
+            
+            font->atlas.location[ascii_code].bearing = v2i(face->glyph->bitmap_left, face->glyph->bitmap_top);
+            font->atlas.location[ascii_code].advance = (u32)face->glyph->advance.x >> 6;
+            
             get_lr_kerning_distance(face, &font->kerning, ascii_code);
             
             // TODO(lmk): Would it be faster to create our own image and and pass to OpenGL in a single call?
@@ -284,68 +250,35 @@ void create_font_atlas(Font *font, char *font_file_path, int pixel_size) {
         }
     }
     
-    int glyph_index = FT_Get_Char_Index(face, 32);
-    assert(FT_Load_Char(face, 32, FT_LOAD_RENDER) == 0);
-    FT_Bitmap *bitmap = &face->glyph->bitmap;
-    assert(stbi_write_png("m.png", bitmap->width, bitmap->rows, 1, bitmap->buffer, bitmap->pitch));
-    
-    Font_Atlas result = {};
-    result.pixel_size = pixel_size;
-    
     FT_Done_Face(face);
     FT_Done_FreeType(library);
 }
 
-
-void render_font(Font *font, char *str, float x, float y, float scale, mat4 *projection, u32 program) {
-    glUseProgram(program);
-    glUniform3f(gl_get_uniform_location(program, "textColor"), 1, 1, 1);
-    glUniformMatrix4fv(gl_get_uniform_location(program, "projection"), 1, GL_FALSE, (f32 *)projection);
-    
-    glActiveTexture(GL_TEXTURE0);
-    glBindVertexArray(font->vao);
+void font_render(Font *font, char *str, int x, int y, float scale, mat4 *projection) {
+    f32 atlas_width = (f32)font->atlas.texture.width;
+    f32 atlas_height = (f32)font->atlas.texture.height;
     
     // iterate through all characters
     size_t length = strlen(str);
     char previous_char = -1;
     char current_char;
-    for (size_t str_index = 0; str_index < length; ++str_index)
-    {
+    for (size_t str_index = 0; str_index < length; ++str_index) {
         current_char = str[str_index];
-        float xpos = x + font->bearing[current_char].x * scale;
-        float ypos = y - (font->size[current_char].y - font->bearing[current_char].y) * scale;
         
-        float w = font->size[current_char].x * scale;
-        float h = font->size[current_char].y * scale;
+        Font_Atlas_Texture_Location *location = &font->atlas.location[current_char];
         
-        // TODO(lmk): Compute texture coordinates
+        Rect dest = {};
+        dest.x = (int)(x + location->bearing.x * scale);
+        dest.y = (int)(y - (location->bitmap.height - location->bearing.y) * scale);
+        dest.width = (int)(location->bitmap.width * scale);
+        dest.height = (int)(location->bitmap.height * scale);
         
-        // update VBO for each character
-        float vertices[6][4] = {
-            { xpos,     ypos + h,   0.0f, 0.0f },
-            { xpos,     ypos,       0.0f, 1.0f },
-            { xpos + w, ypos,       1.0f, 1.0f },
-            
-            { xpos,     ypos + h,   0.0f, 0.0f },
-            { xpos + w, ypos,       1.0f, 1.0f },
-            { xpos + w, ypos + h,   1.0f, 0.0f }
-        };
+        font->texture_rect.render(dest, location->bitmap, font->atlas.texture, projection);
         
-        // render glyph texture over quad
-        glBindTexture(GL_TEXTURE_2D, font->tex_id[current_char]);
-        // update content of VBO memory
-        glBindBuffer(GL_ARRAY_BUFFER, font->vbo);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        // render quad
-        glDrawArrays(GL_TRIANGLES, 0, 6);
         // now advance cursors for next glyph (note that advance is number of 1/64 pixels)
-        x += font->advance[current_char] * scale; // bitshift by 6 to get value in pixels (2^6 = 64)
+        x += (int)(location->advance * scale); // bitshift by 6 to get value in pixels (2^6 = 64)
         
         if(previous_char != -1) 
             x += font->kerning.left[previous_char].right[current_char].x;
     }
-    
-    glBindVertexArray(0);
-    glBindTexture(GL_TEXTURE_2D, 0);
 }

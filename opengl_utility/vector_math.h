@@ -42,6 +42,12 @@ union v4 {
 
 #endif //GLM_VERSION
 
+#define EPSILON 0.001f
+#define FULL_CIRCLE 2.0f * PI
+#define QUARTER_CIRCLE (PI / 2.0f)
+#define MAX_POLAR_ROTATION (QUARTER_CIRCLE - EPSILON)
+#define UP v3(0, 1, 0)
+
 
 #define squared(x) (x*x)
 

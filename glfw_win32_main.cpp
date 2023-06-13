@@ -3,16 +3,27 @@
 #include <glm/glm.hpp>
 #include "glm/gtc/constants.hpp"
 #include "glm/gtc/matrix_transform.hpp"
-
+#include "opengl_utility/vector_math.h"
 #include "win32_platform.h"
 #include "GLFW/glfw3.h"
+#include "defines.h"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
+#include "opengl_utility/core.h"
+#include "opengl_utility/debug.h"
+#include "../cfile/cfile.h"
+#include "arena.h"
+#include "input.h"
+#include "tweak.h"
 
 // NOTE(lmk): Some library, I think GLM, includes cassert, so we have to undefine it
 #undef assert
 #define assert(expression) if(!(expression)) { *(int *)0 = 0; }
+void glfw_mouse_scroll_callback(GLFWwindow *window, double x_offset, double y_offset);
+void glfw_window_focus_callback(GLFWwindow *window, int focused);
+bool is_mouse_button_pressed(int);
+bool is_key_pressed(int);
 
 struct Platform_Stuff {
     GLFWwindow *window;
@@ -21,18 +32,12 @@ struct Platform_Stuff {
     Input_State input_state;
 } global Platform;
 
-
-void glfw_mouse_scroll_callback(GLFWwindow *window, double x_offset, double y_offset);
-void glfw_window_focus_callback(GLFWwindow *window, int focused);
-bool is_mouse_button_pressed(int);
-bool is_key_pressed(int);
 bool get_next_input_event(Input_Event *event);
 
-#include "tweak.h"
 #include "camera.cpp"
 #include "editor.cpp"
 #include "font.cpp"
-
+#include "imgui_util.cpp"
 #include "app.h"
 #include "app.cpp"
 

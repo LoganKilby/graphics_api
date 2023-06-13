@@ -1,12 +1,3 @@
-static GLuint gl_compile_shader(char *file_path, GLenum type) {
-    u32 src_length;
-    char *src = (char *)os_read_entire_file(file_path, &src_length);
-    GLuint result = gl_compile_shader(src, src_length, type);
-    free(src);
-    return result;
-}
-
-
 void save_scene_data(Scene *scene) {
     cfile_write(DEBUG_SCENE_NAME, scene, sizeof(Scene));
 }
@@ -142,10 +133,10 @@ void learnoepngl_camera(Application_State *app_state, mat4 *projection, mat4 *vi
     glUniform1i(tex0_location, 0);
     glUniform1i(tex1_location, 1);
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, app_state->font.atlas_tex_id);
+    glBindTexture(GL_TEXTURE_2D, app_state->font.atlas.texture.id);
     //glBindTexture(GL_TEXTURE_2D, app_state->gl_utility_context.wall.id);
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, app_state->font.atlas_tex_id);
+    glBindTexture(GL_TEXTURE_2D, app_state->font.atlas.texture.id);
     //glBindTexture(GL_TEXTURE_2D, app_state->gl_utility_context.awesome_face.id);
     
     //
@@ -188,8 +179,8 @@ void update_and_render(void *platform_memory) {
     
     if(!app_state->initialized) {
         gl_utility_init(&app_state->gl_utility_context);
-        gl_vertex_buffer_3f3f(&app_state->test_vao, &app_state->test_vbo);
-        GL_Utility_Compiled_Shaders sh = {};
+        gl_array_buffer_3f3f(&app_state->test_vao, &app_state->test_vbo);
+        GL_Compiled_Shaders sh = {};
         
         sh.vert = gl_compile_shader("shaders/vertex3f3f.vert", GL_VERTEX_SHADER);
         sh.frag = gl_compile_shader("shaders/vertex3f3f.frag", GL_FRAGMENT_SHADER);
@@ -206,7 +197,7 @@ void update_and_render(void *platform_memory) {
         gl_array_buffer_3f2f(&app_state->v3f_uv2f);
         app_state->alexstrasza = gl_texture_2d("opengl_utility/textures/alexstrasza.jpg");
         
-        glClearColor(0, 0, 0, 0);
+        glClearColor(0.1, 0.1, 0.1, 0);
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_MULTISAMPLE);
         glEnable(GL_BLEND);
@@ -216,7 +207,7 @@ void update_and_render(void *platform_memory) {
         //create_font_atlas("fonts/consola.ttf", 16);
         //create_font_atlas("fonts/consola.ttf", 48);
         //load_ascii_textures(&app_state->font, "fonts/consola.ttf", 48);
-        create_font_atlas(&app_state->font, "fonts/consola.ttf", 48);
+        create_font(&app_state->font, "fonts/consola.ttf", 48);
         
         app_state->scene.player.position = v3(0, 0, 0);
         
@@ -236,6 +227,43 @@ void update_and_render(void *platform_memory) {
         app_state->scene.editor.z_axis_color = v4(1, 0, 0, 1);
         app_state->scene.editor.editing = 0;
         app_state->scene.camera.pan_speed = DEFAULT_ORBIT_CAMERA_PAN_SPEED;
+        
+        app_state->smile1 = GL_Image("opengl_utility/textures/awesomeface.png");
+        app_state->smile2 = GL_Image("opengl_utility/textures/awesomeface_gray.png");
+        app_state->smile1t = GL_Texture2D(&app_state->smile1);
+        app_state->smile2t = GL_Texture2D(&app_state->smile2);
+        
+        app_state->textured_polygon_shader.create();
+        app_state->texture_rect.create(&app_state->textured_polygon_shader);
+        
+        int max_height = max(app_state->smile1.height, app_state->smile2.height);
+        int total_width = app_state->smile1.width + app_state->smile2.width;
+        app_state->test_atlas.width = total_width;
+        app_state->test_atlas.height = max_height;
+        
+        Rect smile1_rect = { 0, 0, app_state->smile1.width, app_state->smile1.height };
+        Rect smile2_rect = { app_state->smile1.width, 0, app_state->smile2.width, app_state->smile2.height };
+        
+        glGenTextures(1, &app_state->test_atlas.id);
+        glBindTexture(GL_TEXTURE_2D, app_state->test_atlas.id);
+        glTexImage2D(GL_TEXTURE_2D,
+                     0,
+                     GL_RGB,
+                     total_width,
+                     max_height,
+                     0,
+                     GL_RGBA,
+                     GL_UNSIGNED_BYTE,
+                     0);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, smile1_rect.x, smile1_rect.y, smile1_rect.width, smile1_rect.height, GL_RGBA, GL_UNSIGNED_BYTE, app_state->smile1.pixels);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, smile2_rect.x, smile2_rect.y, smile2_rect.width, smile2_rect.height, GL_RGBA, GL_UNSIGNED_BYTE, app_state->smile2.pixels);
+        
+        app_state->smile1_rect = smile1_rect;
+        app_state->smile2_rect = smile2_rect;
         
         //load_scene_data(&app_state->scene);
         
@@ -310,13 +338,22 @@ void update_and_render(void *platform_memory) {
     int frames_per_second = (int)(1000.0f / Platform.delta_time);
     char str[100] = {};
     sprintf(str, "FPS: %d", Platform.average_fps);
-    render_font(&app_state->font, str, 25, 25, 1.0f, &projection_2d, app_state->font_program);
+    //render_font(&app_state->font, str, 25, 25, 1.0f, &projection_2d, app_state->font_program);
+    font_render(&app_state->font, str, 25, 25, 1.0f, &projection_2d);
     
     //
     // Render editor
-    // Is 'if' still a problem, or 'If'?
     ImGui_BeginFrame();
     bool show_demo_window;
     ImGui::ShowDemoWindow(&show_demo_window);
+    ImGuiUtil_ShowTexture(&app_state->font.atlas.texture, "Font Atlas");
+    ImGuiUtil_ShowTexture(&app_state->test_atlas, "Test Atlas");
+    ImGuiUtil_ShowTexture(&app_state->smile1t, "Smile 1");
+    ImGuiUtil_ShowTexture(&app_state->smile2t, "Smile 2");
+    
+    static Rect window = {19, 430, 10, 31};
+    ImGui::Text("width: %d, height: %d", app_state->font.atlas.texture.width, app_state->font.atlas.texture.height);
+    
     ImGui_EndFrame();
+    
 }

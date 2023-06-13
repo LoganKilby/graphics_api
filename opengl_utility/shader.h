@@ -5,7 +5,7 @@
 
 // NOTE(lmk): GLSL reference compiler uses the extensions .vert, .frag, .geom, .tesc, .tese, .comp
 
-struct GL_Utility_Compiled_Shaders {
+struct GL_Compiled_Shaders {
     GLuint vert;
     GLuint frag;
     GLuint geom;
@@ -31,12 +31,6 @@ static char *global_gl_mvp_static_color_vert =
 ;
 
 #define MAX_INFO_LOG_LENGTH 1024
-
-static bool gl_check_compile_status(GLuint id) {
-    
-    
-    return true;
-}
 
 
 static GLuint gl_compile_shader(char *source, GLint src_length, GLenum type) {
@@ -72,10 +66,19 @@ static GLuint gl_compile_shader(char *source, GLint src_length, GLenum type) {
 }
 
 
-static GLuint gl_link_program(GL_Utility_Compiled_Shaders *compiled_shader_ids) {
+static GLuint gl_compile_shader(char *file_path, GLenum type) {
+    u32 src_length;
+    char *src = (char *)os_read_entire_file(file_path, &src_length);
+    GLuint result = gl_compile_shader(src, src_length, type);
+    free(src);
+    return result;
+}
+
+
+static GLuint gl_link_program(GL_Compiled_Shaders *compiled_shader_ids) {
     GLuint result = glCreateProgram();
     
-    int count = (sizeof(GL_Utility_Compiled_Shaders) / sizeof(GLuint));
+    int count = (sizeof(GL_Compiled_Shaders) / sizeof(GLuint));
     GLuint *id_list = (GLuint *)compiled_shader_ids;
     
     for(int id_index = 0; id_index < count; ++id_index) {
@@ -95,10 +98,6 @@ static GLuint gl_link_program(GL_Utility_Compiled_Shaders *compiled_shader_ids) 
         
         int actual_length = 0;
         glGetProgramInfoLog(result, MAX_INFO_LOG_LENGTH, &actual_length, info_log);
-        
-        // Linking an invalid compiled shader id?
-        //if((suggested_length == 0) && (actual_length > 0))
-        //fprintf(stderr, "wtf");
         
         fprintf(stderr, "%s\n", info_log);
         assert(0);
@@ -122,5 +121,31 @@ static GLint gl_get_uniform_location(GLuint program, const GLchar *name) {
     
     return result;
 }
+
+
+static char *global_gl_textured_polygon_vert = 
+#include "shaders/textured_polygon.vert"
+;
+static char *global_gl_textured_polygon_frag = 
+#include "shaders/textured_polygon.frag"
+;
+struct GLS_Textured_Polygon {
+    GLuint program;
+    GLint u_sampler2D;
+    GLint u_projection;
+    
+    GLS_Textured_Polygon() {
+        initialize_internal(this);
+    }
+    
+    void create() {
+        GL_Compiled_Shaders s = {};
+        s.vert = gl_compile_shader(global_gl_textured_polygon_vert, 0, GL_VERTEX_SHADER);
+        s.frag = gl_compile_shader(global_gl_textured_polygon_frag, 0, GL_FRAGMENT_SHADER);
+        program = gl_link_program(&s);
+        u_sampler2D = gl_get_uniform_location(program, "u_texture");
+        u_projection = gl_get_uniform_location(program, "u_projection");
+    }
+};
 
 #endif //SHADER_H

@@ -10,7 +10,6 @@
 #endif
 
 #include "vector_math.h"
-#include "texture.h"
 
 
 struct GL_Array_Buffer {
@@ -26,6 +25,12 @@ struct GL_Element_Buffer {
 };
 
 
+static void gl_array_buffer_2f2f(GL_Array_Buffer *o);
+static void gl_element_buffer_3f(GL_Element_Buffer *o, GLuint *indices, int index_count);
+static void gl_element_buffer_3f2f(GL_Element_Buffer *o, GLuint *indices, int index_count);
+static void gl_array_buffer_3f(GL_Array_Buffer *o);
+
+
 struct GL_Shape_Context {
     GLuint v3f;
 };
@@ -37,6 +42,8 @@ struct GL_Viewport {
     int width;
     int height;
 };
+
+#include "texture.h"
 
 
 struct GL_Utility_Context {
@@ -96,11 +103,6 @@ char *gl_get_error_string(GLenum err) {
 }
 
 
-static void gl_element_buffer_3f(GL_Element_Buffer *o, GLuint *indices, int index_count);
-static void gl_element_buffer_3f2f(GL_Element_Buffer *o, GLuint *indices, int index_count);
-static void gl_array_buffer_3f(GL_Array_Buffer *o);
-
-
 static void gl_utility_init(GL_Utility_Context *context) {
     memset(context, 0, sizeof(GL_Utility_Context));
     
@@ -108,7 +110,7 @@ static void gl_utility_init(GL_Utility_Context *context) {
     
     gl_array_buffer_3f(&context->array_buffer_v3f);
     
-    GL_Utility_Compiled_Shaders sh = {};
+    GL_Compiled_Shaders sh = {};
     
     sh.vert = gl_compile_shader(global_gl_shape_vert, 0, GL_VERTEX_SHADER);
     sh.frag = gl_compile_shader(global_gl_shape_frag, 0, GL_FRAGMENT_SHADER);
@@ -148,7 +150,7 @@ static void gl_utility_init(GL_Utility_Context *context) {
 }
 
 
-static void gl_vertex_buffer_3f3f(GLuint *vao_out, GLuint *vbo_out) {
+static void gl_array_buffer_3f3f(GLuint *vao_out, GLuint *vbo_out) {
     GLuint vao, vbo;
     glGenBuffers(1, &vbo);
     glGenVertexArrays(1, &vao);
@@ -164,7 +166,6 @@ static void gl_vertex_buffer_3f3f(GLuint *vao_out, GLuint *vbo_out) {
     *vbo_out = vbo;
 }
 
-
 static void gl_array_buffer_3f2f(GL_Array_Buffer *o) {
     glGenBuffers(1, &o->vbo);
     glGenVertexArrays(1, &o->vao);
@@ -175,6 +176,17 @@ static void gl_array_buffer_3f2f(GL_Array_Buffer *o) {
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
+}
+
+static void gl_array_buffer_2f2f(GL_Array_Buffer *o) {
+    glGenVertexArrays(1, &o->vao);
+    glGenBuffers(1, &o->vbo);
+    glBindVertexArray(o->vao);
+    glBindBuffer(GL_ARRAY_BUFFER, o->vbo);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
 }
 
 static void gl_array_buffer_3f(GL_Array_Buffer *o) {
