@@ -6,6 +6,7 @@
 #define STBIW_ASSERT assert
 #include "stb_image_write.h"
 
+
 // NOTE(lmk): Only loading ascii 0-128. Could trivially support more, I just don't have any use for them.
 stbrp_rect *gather_glyph_rects(FT_Face face, u32 *count) {
     stbrp_rect *result = (stbrp_rect *)malloc(sizeof(stbrp_rect) * 128);
@@ -33,6 +34,7 @@ stbrp_rect *gather_glyph_rects(FT_Face face, u32 *count) {
     
     return result;
 }
+
 
 struct GLS_Font {
     GLuint program;
@@ -253,6 +255,7 @@ void create_font(Font *font, char *font_file_path, int pixel_size) {
     FT_Done_Face(face);
     FT_Done_FreeType(library);
 }
+
 
 void font_render(Font *font, char *str, int x, int y, float scale, mat4 *projection) {
     f32 atlas_width = (f32)font->atlas.texture.width;
