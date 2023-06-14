@@ -46,6 +46,7 @@ struct Application_State {
     Rect smile1_rect, smile2_rect;
     
     GLS_Textured_Polygon textured_polygon_shader;
+    Font_Renderer font_renderer;
     
     GL_Texture_Rect texture_rect;
     

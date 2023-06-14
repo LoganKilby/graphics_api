@@ -26,6 +26,7 @@ struct GL_Element_Buffer {
 
 
 static void gl_array_buffer_2f2f(GL_Array_Buffer *o);
+static void gl_array_buffer_2f2f1f(GL_Array_Buffer *o);
 static void gl_element_buffer_3f(GL_Element_Buffer *o, GLuint *indices, int index_count);
 static void gl_element_buffer_3f2f(GL_Element_Buffer *o, GLuint *indices, int index_count);
 static void gl_array_buffer_3f(GL_Array_Buffer *o);
@@ -166,6 +167,7 @@ static void gl_array_buffer_3f3f(GLuint *vao_out, GLuint *vbo_out) {
     *vbo_out = vbo;
 }
 
+
 static void gl_array_buffer_3f2f(GL_Array_Buffer *o) {
     glGenBuffers(1, &o->vbo);
     glGenVertexArrays(1, &o->vao);
@@ -178,6 +180,7 @@ static void gl_array_buffer_3f2f(GL_Array_Buffer *o) {
     glEnableVertexAttribArray(1);
 }
 
+
 static void gl_array_buffer_2f2f(GL_Array_Buffer *o) {
     glGenVertexArrays(1, &o->vao);
     glGenBuffers(1, &o->vbo);
@@ -188,6 +191,19 @@ static void gl_array_buffer_2f2f(GL_Array_Buffer *o) {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 }
+
+
+static void gl_array_buffer_5f(GL_Array_Buffer *o) {
+    glGenVertexArrays(1, &o->vao);
+    glGenBuffers(1, &o->vbo);
+    glBindVertexArray(o->vao);
+    glBindBuffer(GL_ARRAY_BUFFER, o->vbo);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+}
+
 
 static void gl_array_buffer_3f(GL_Array_Buffer *o) {
     glGenBuffers(1, &o->vbo);

@@ -1,3 +1,5 @@
+#include "stddef.h"
+
 #define STB_RECT_PACK_IMPLEMENTATION
 #define STBRP_ASSERT assert
 #include "stb_rect_pack.h"
@@ -5,7 +7,6 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define STBIW_ASSERT assert
 #include "stb_image_write.h"
-
 
 // NOTE(lmk): Only loading ascii 0-128. Could trivially support more, I just don't have any use for them.
 stbrp_rect *gather_glyph_rects(FT_Face face, u32 *count) {
@@ -36,28 +37,6 @@ stbrp_rect *gather_glyph_rects(FT_Face face, u32 *count) {
 }
 
 
-struct GLS_Font {
-    GLuint program;
-    GLint u_sampler2D;
-    GLint u_projection;
-    //GLint u_text_color;
-    
-    GLS_Font() {
-        initialize_internal(this);
-    }
-    
-    void create() {
-        GL_Compiled_Shaders s = {};
-        s.vert = gl_compile_shader("shaders/font_shader.vert", GL_VERTEX_SHADER);
-        s.frag = gl_compile_shader("shaders/font_shader.frag", GL_FRAGMENT_SHADER);
-        program = gl_link_program(&s);
-        u_sampler2D = gl_get_uniform_location(program, "u_texture");
-        u_projection = gl_get_uniform_location(program, "u_projection");
-        //u_text_color = gl_get_uniform_location(program, "u_text_color");
-    }
-};
-
-
 struct Kern_Left {
     v2i right[128];
 };
@@ -69,7 +48,7 @@ struct Kerning_Table {
 };
 
 
-struct Font_Atlas_Texture_Location {
+struct Font_Texture_Atlas_Location {
     Rect bitmap; // texture atlas coordinates
     v2i bearing;
     int advance;
@@ -77,18 +56,81 @@ struct Font_Atlas_Texture_Location {
 
 
 struct Font_Texture_Atlas {
-    Font_Atlas_Texture_Location location[128];
+    Font_Texture_Atlas_Location location[128];
     GL_Texture2D texture;
+};
+
+
+struct Font_Vertex {
+    v2 pos;
+    v2 uv;
+    v3 color;
+    float t;
 };
 
 
 struct Font {
     Font_Texture_Atlas atlas;
-    GLS_Font shader;
-    GL_Texture_Rect texture_rect;
     Kerning_Table kerning;
     int pixel_size;
+    
+    Font_Vertex *get_vertices(char *str, int screen_x, int screen_y, float scale, v3 color, int *count);
 };
+
+
+struct GLS_Font2D {
+    GLuint program;
+    GLint u_sampler2D;
+    GLint u_projection;
+    
+    GLS_Font2D() { zero_this(this); }
+    
+    void create(char *vert_shader = "shaders/font_shader.vert", char *frag_shader = "shaders/font_shader.frag") {
+        GL_Compiled_Shaders s = {};
+        s.vert = gl_compile_shader(vert_shader, GL_VERTEX_SHADER);
+        s.frag = gl_compile_shader(frag_shader, GL_FRAGMENT_SHADER);
+        program = gl_link_program(&s);
+        u_sampler2D = gl_get_uniform_location(program, "u_texture");
+        u_projection = gl_get_uniform_location(program, "u_projection");
+    }
+};
+
+
+struct Font_Renderer {
+    GLenum          usage;
+    GL_Array_Buffer buffer;
+    GLS_Font2D      shader;
+    
+    Font_Renderer() { zero_this(this); }
+    void create();
+    void text(Font *font, char *str, int screen_x, int screen_y, float scale, v3 color, mat4 *proj_2d); // renders text immediately
+    void fade(char *string, int delay, int duration);
+};
+
+
+void Font_Renderer::create() {
+    shader.create();
+    
+    // NOTE(lmk): The data buffer is re-allocated per draw call. Each quad in a string of text
+    // gets drawn in the same call.
+    
+    glGenVertexArrays(1, &buffer.vao);
+    glGenBuffers(1, &buffer.vbo);
+    glBindVertexArray(buffer.vao);
+    glBindBuffer(GL_ARRAY_BUFFER, buffer.vbo);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Font_Vertex), (void *)offsetof(Font_Vertex, pos));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Font_Vertex), (void *)offsetof(Font_Vertex, uv));
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Font_Vertex), (void *)offsetof(Font_Vertex, color));
+    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(Font_Vertex), (void *)offsetof(Font_Vertex, t));
+    
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
 
 
 void get_lr_kerning_distance(FT_Face face, Kerning_Table *table, int c1) {
@@ -185,9 +227,6 @@ void minimum_bounding_box_solver(stbrp_rect *rects, int rect_count, int *width_o
 
 
 void create_font(Font *font, char *font_file_path, int pixel_size) {
-    font->shader.create();
-    font->texture_rect.create((GLS_Textured_Polygon *)&font->shader);
-    
     FT_Library library;
     if(FT_Init_FreeType(&library)) {
         fail("FreeType::FT_Init_FreeType(): failed to initialize library");
@@ -209,13 +248,12 @@ void create_font(Font *font, char *font_file_path, int pixel_size) {
     int bbox_width, bbox_height;
     minimum_bounding_box_solver(rects, rect_count, &bbox_width, &bbox_height);
     
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    
-    glGenTextures(1, &font->atlas.texture.id);
-    glBindTexture(GL_TEXTURE_2D, font->atlas.texture.id);
-    
     font->atlas.texture.width = bbox_width;
     font->atlas.texture.height = bbox_height;
+    
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glGenTextures(1, &font->atlas.texture.id);
+    glBindTexture(GL_TEXTURE_2D, font->atlas.texture.id);
     
     glTexImage2D(GL_TEXTURE_2D,
                  0,
@@ -257,31 +295,94 @@ void create_font(Font *font, char *font_file_path, int pixel_size) {
 }
 
 
-void font_render(Font *font, char *str, int x, int y, float scale, mat4 *projection) {
+void Font_Renderer::text(Font *font, char *str, int screen_x, int screen_y, float scale, v3 color, mat4 *proj_2d) {
     f32 atlas_width = (f32)font->atlas.texture.width;
     f32 atlas_height = (f32)font->atlas.texture.height;
     
-    // iterate through all characters
+    int count = 0;
+    Font_Vertex *vertices = font->get_vertices(str, screen_x, screen_y, scale, color, &count);
+    
+    glUseProgram(shader.program);
+    glUniformMatrix4fv(shader.u_projection, 1, GL_FALSE, (f32*)proj_2d);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, font->atlas.texture.id);
+    glBindVertexArray(buffer.vao);
+    glBindBuffer(GL_ARRAY_BUFFER, buffer.vbo);
+    
+    glBufferData(GL_ARRAY_BUFFER, sizeof(Font_Vertex) * count, (f32 *)vertices, GL_DYNAMIC_DRAW);
+    glDrawArrays(GL_TRIANGLES, 0, count);
+    
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, buffer.vbo);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    
+    free(vertices);
+}
+
+
+Font_Vertex *Font::get_vertices(char *str, int screen_x, int screen_y, float scale, v3 color, int *vertex_count) {
     size_t length = strlen(str);
+    if(length == 0) {
+        *vertex_count = 0;
+        return 0;
+    }
+    
+    // TODO(lmk): Think of a way to buffer up vertices every frame that doesn't involve heap allocations like this
+    Font_Vertex *result = (Font_Vertex *)malloc(sizeof(Font_Vertex) * length * 6);
+    memset(result, 0, sizeof(Font_Vertex) * length);
+    *vertex_count = (int)length * 6;
+    
     char previous_char = -1;
     char current_char;
+    Font_Vertex *vertex;
+    f32 atlas_width = (f32)atlas.texture.width;
+    f32 atlas_height = (f32)atlas.texture.height;
     for (size_t str_index = 0; str_index < length; ++str_index) {
         current_char = str[str_index];
+        vertex = &result[str_index * 6];
         
-        Font_Atlas_Texture_Location *location = &font->atlas.location[current_char];
+        Font_Texture_Atlas_Location *location = &atlas.location[current_char];
         
-        Rect dest = {};
-        dest.x = (int)(x + location->bearing.x * scale);
-        dest.y = (int)(y - (location->bitmap.height - location->bearing.y) * scale);
-        dest.width = (int)(location->bitmap.width * scale);
-        dest.height = (int)(location->bitmap.height * scale);
+        f32 x = screen_x + (location->bearing.x * scale);
+        f32 y = screen_y - (location->bitmap.height - location->bearing.y) * scale;
+        f32 w = location->bitmap.width * scale;
+        f32 h = location->bitmap.height * scale;
         
-        font->texture_rect.render(dest, location->bitmap, font->atlas.texture, projection);
+        f32 left = location->bitmap.x / atlas_width;
+        f32 right = (location->bitmap.x + location->bitmap.width) / atlas_width;
+        f32 bottom =  (location->bitmap.y / atlas_height);
+        f32 top = (location->bitmap.y + location->bitmap.height) / atlas_height;
         
-        // now advance cursors for next glyph (note that advance is number of 1/64 pixels)
-        x += (int)(location->advance * scale); // bitshift by 6 to get value in pixels (2^6 = 64)
+        vertex[0].pos = {x, y+h};
+        vertex[0].uv = { left, bottom};
+        vertex[0].color = color;
+        vertex[0].t = 0;
+        
+        vertex[1].pos = {x, y};
+        vertex[1].uv = {left, top};
+        vertex[1].color = color;
+        vertex[1].t = 0;
+        
+        vertex[2].pos = {x+w, y};
+        vertex[2].uv = {right, top};
+        vertex[2].t = 0;
+        vertex[2].color = color;
+        
+        // TODO(lmk): Could use an element buffer
+        vertex[3] = vertex[0];
+        vertex[4] = vertex[2];
+        
+        vertex[5].pos = {x+w, y+h};
+        vertex[5].uv = {right, bottom};
+        vertex[5].color = color;
+        vertex[5].t = 0;
+        
+        // advance cursors for next glyph
+        screen_x += (int)(location->advance * scale);
         
         if(previous_char != -1) 
-            x += font->kerning.left[previous_char].right[current_char].x;
+            screen_x += kerning.left[previous_char].right[current_char].x; 
     }
+    
+    return result;
 }

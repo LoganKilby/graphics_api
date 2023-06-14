@@ -203,10 +203,7 @@ void update_and_render(void *platform_memory) {
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         
-        // FreeType
-        //create_font_atlas("fonts/consola.ttf", 16);
-        //create_font_atlas("fonts/consola.ttf", 48);
-        //load_ascii_textures(&app_state->font, "fonts/consola.ttf", 48);
+        // Fonts
         create_font(&app_state->font, "fonts/consola.ttf", 48);
         
         app_state->scene.player.position = v3(0, 0, 0);
@@ -235,6 +232,8 @@ void update_and_render(void *platform_memory) {
         
         app_state->textured_polygon_shader.create();
         app_state->texture_rect.create(&app_state->textured_polygon_shader);
+        
+        app_state->font_renderer.create();
         
         int max_height = max(app_state->smile1.height, app_state->smile2.height);
         int total_width = app_state->smile1.width + app_state->smile2.width;
@@ -338,8 +337,8 @@ void update_and_render(void *platform_memory) {
     int frames_per_second = (int)(1000.0f / Platform.delta_time);
     char str[100] = {};
     sprintf(str, "FPS: %d", Platform.average_fps);
-    //render_font(&app_state->font, str, 25, 25, 1.0f, &projection_2d, app_state->font_program);
-    font_render(&app_state->font, str, 25, 25, 1.0f, &projection_2d);
+    app_state->font_renderer.text(&app_state->font, str, 25, 25, 1.0f, v3(1, 1, 1), &projection_2d);
+    
     
     //
     // Render editor
