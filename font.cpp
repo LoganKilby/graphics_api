@@ -105,6 +105,7 @@ struct Font_Renderer {
     void create();
     void text(Font *font, char *str, int screen_x, int screen_y, float scale, v3 color, mat4 *proj_2d); // renders text immediately
     void fade(char *string, int delay, int duration);
+    void render(mat4 *proj_2d);
 };
 
 
@@ -130,7 +131,6 @@ void Font_Renderer::create() {
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
-
 
 
 void get_lr_kerning_distance(FT_Face face, Kerning_Table *table, int c1) {
@@ -296,9 +296,6 @@ void create_font(Font *font, char *font_file_path, int pixel_size) {
 
 
 void Font_Renderer::text(Font *font, char *str, int screen_x, int screen_y, float scale, v3 color, mat4 *proj_2d) {
-    f32 atlas_width = (f32)font->atlas.texture.width;
-    f32 atlas_height = (f32)font->atlas.texture.height;
-    
     int count = 0;
     Font_Vertex *vertices = font->get_vertices(str, screen_x, screen_y, scale, color, &count);
     
