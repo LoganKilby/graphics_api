@@ -82,8 +82,8 @@ struct GLS_Font2D {
     GLuint program;
     GLint u_sampler2D;
     GLint u_projection;
-    
-    GLS_Font2D() { zero_this(this); }
+    GLint u_color;
+    GLint u_t;
     
     void create(char *vert_shader = "shaders/font_shader.vert", char *frag_shader = "shaders/font_shader.frag") {
         GL_Compiled_Shaders s = {};
@@ -92,7 +92,26 @@ struct GLS_Font2D {
         program = gl_link_program(&s);
         u_sampler2D = gl_get_uniform_location(program, "u_texture");
         u_projection = gl_get_uniform_location(program, "u_projection");
+        u_color = gl_get_uniform_location(program, "u_color");
+        u_t = gl_get_uniform_location(program, "u_t");
     }
+};
+
+
+struct Font_Draw_Command {
+    Font *font;
+    v3 color;
+    
+    // NOTE(lmk): Expressed as seconds
+    float delay;
+    float duration;
+    float elapsed;
+    float t;
+    
+    int vertex_count;
+    Font_Vertex *vertices;
+    
+    b32 active;
 };
 
 
@@ -101,10 +120,14 @@ struct Font_Renderer {
     GL_Array_Buffer buffer;
     GLS_Font2D      shader;
     
-    Font_Renderer() { zero_this(this); }
+    // TODO(lmk): Think of a good way to do command lists
+    int command_list_count;
+    Font_Draw_Command command_list[128];
+    
     void create();
-    void text(Font *font, char *str, int screen_x, int screen_y, float scale, v3 color, mat4 *proj_2d); // renders text immediately
-    void fade(char *string, int delay, int duration);
+    void text(Font *font, char *str, int screen_x, int screen_y, f32 scale, v3 color); // renders text immediately
+    void fade(Font *font, char *str, int screen_x, int screen_y, f32 scale, v3 color, f32 delay, f32 duration);
+    void push(Font_Draw_Command *command);
     void render(mat4 *proj_2d);
 };
 
@@ -112,8 +135,9 @@ struct Font_Renderer {
 void Font_Renderer::create() {
     shader.create();
     
-    // NOTE(lmk): The data buffer is re-allocated per draw call. Each quad in a string of text
-    // gets drawn in the same call.
+    // NOTE(lmk): The vertex buffer is re-allocated per draw call and each quad in a string of text
+    // gets drawn in the same call. This was faster than calling glBufferSubData and emitting a
+    // draw call for each quad in the string.
     
     glGenVertexArrays(1, &buffer.vao);
     glGenBuffers(1, &buffer.vbo);
@@ -123,13 +147,49 @@ void Font_Renderer::create() {
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Font_Vertex), (void *)offsetof(Font_Vertex, pos));
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Font_Vertex), (void *)offsetof(Font_Vertex, uv));
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Font_Vertex), (void *)offsetof(Font_Vertex, color));
-    glEnableVertexAttribArray(3);
-    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(Font_Vertex), (void *)offsetof(Font_Vertex, t));
-    
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+
+void Font_Renderer::render(mat4 *projection_2d) {
+    if(command_list_count == 0) return;
+    
+    glUseProgram(shader.program);
+    glUniformMatrix4fv(shader.u_projection, 1, GL_FALSE, (f32*)projection_2d);
+    glActiveTexture(GL_TEXTURE0);
+    
+    for(Font_Draw_Command *command = &command_list[0]; 
+        command < &command_list[0] + countof(command_list); 
+        ++command) {
+        
+        if(command->active) {
+            glUniform3fv(shader.u_color, 1, (f32 *)&command->color);
+            glUniform1f(shader.u_t, command->t);
+            glBindTexture(GL_TEXTURE_2D, command->font->atlas.texture.id);
+            glBindVertexArray(buffer.vao);
+            glBindBuffer(GL_ARRAY_BUFFER, buffer.vbo);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(Font_Vertex) * command->vertex_count, (f32 *)command->vertices, GL_DYNAMIC_DRAW);
+            glDrawArrays(GL_TRIANGLES, 0, command->vertex_count);
+            glBindVertexArray(0);
+            glBindBuffer(GL_ARRAY_BUFFER, buffer.vbo);
+            glBindTexture(GL_TEXTURE_2D, 0);
+            
+            // TODO(lmk): This feels out of place. Maybe the animation update should happen in a separate step?
+            if(command->elapsed >= command->duration) {
+                free(command->vertices);
+                memset(command, 0, sizeof(Font_Draw_Command));
+                command_list_count--;
+            } else {
+                if(command->delay > 0) {
+                    command->delay -= Platform.delta_time;
+                } else {
+                    command->elapsed += Platform.delta_time;
+                    command->t = command->elapsed / command->duration;
+                }
+            }
+        }
+    }
 }
 
 
@@ -226,7 +286,7 @@ void minimum_bounding_box_solver(stbrp_rect *rects, int rect_count, int *width_o
 }
 
 
-void create_font(Font *font, char *font_file_path, int pixel_size) {
+void load_font(Font *font, char *font_file_path, int pixel_size) {
     FT_Library library;
     if(FT_Init_FreeType(&library)) {
         fail("FreeType::FT_Init_FreeType(): failed to initialize library");
@@ -244,7 +304,8 @@ void create_font(Font *font, char *font_file_path, int pixel_size) {
     u32 rect_count;
     stbrp_rect *rects = gather_glyph_rects(face, &rect_count);
     
-    // TODO(lmk): we could cache this result, or even the entire font atlas bitmap itself
+    // TODO(lmk): There's a lot we could cache to speed this up in exchange for flexibility.
+    // Caching the texture, the min bbox dimensions, etc.
     int bbox_width, bbox_height;
     minimum_bounding_box_solver(rects, rect_count, &bbox_width, &bbox_height);
     
@@ -295,25 +356,44 @@ void create_font(Font *font, char *font_file_path, int pixel_size) {
 }
 
 
-void Font_Renderer::text(Font *font, char *str, int screen_x, int screen_y, float scale, v3 color, mat4 *proj_2d) {
+void Font_Renderer::push(Font_Draw_Command *command) {
+    if(command_list_count < countof(command_list)) {
+        command_list[command_list_count++] = *command;
+    } else {
+        assert(0);
+    }
+}
+
+
+void Font_Renderer::text(Font *font, char *str, int screen_x, int screen_y, float scale, v3 color) {
     int count = 0;
     Font_Vertex *vertices = font->get_vertices(str, screen_x, screen_y, scale, color, &count);
     
-    glUseProgram(shader.program);
-    glUniformMatrix4fv(shader.u_projection, 1, GL_FALSE, (f32*)proj_2d);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, font->atlas.texture.id);
-    glBindVertexArray(buffer.vao);
-    glBindBuffer(GL_ARRAY_BUFFER, buffer.vbo);
+    Font_Draw_Command command = {};
+    command.font = font;
+    command.vertices = vertices;
+    command.vertex_count = count;
+    command.color = color;
+    command.active = 1;
     
-    glBufferData(GL_ARRAY_BUFFER, sizeof(Font_Vertex) * count, (f32 *)vertices, GL_DYNAMIC_DRAW);
-    glDrawArrays(GL_TRIANGLES, 0, count);
+    push(&command);
+}
+
+
+void Font_Renderer::fade(Font *font, char *str, int screen_x, int screen_y, f32 scale, v3 color, f32 delay, f32 duration) {
+    int count = 0;
+    Font_Vertex *vertices = font->get_vertices(str, screen_x, screen_y, scale, color, &count);
     
-    glBindVertexArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, buffer.vbo);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    Font_Draw_Command command = {};
+    command.font = font;
+    command.vertices = vertices;
+    command.vertex_count = count;
+    command.color = color;
+    command.delay = delay;
+    command.duration = duration;
+    command.active = 1;
     
-    free(vertices);
+    push(&command);
 }
 
 

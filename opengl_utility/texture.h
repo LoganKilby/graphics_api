@@ -42,8 +42,6 @@ struct GL_Image {
     int height;
     int channels;
     
-    GL_Image();
-    GL_Image(char *, int);
     void load(char *, int);
     void unload();
 };
@@ -54,11 +52,9 @@ struct GL_Texture2D {
     int width;
     int height;
     
-    GL_Texture2D() {
-        initialize_internal(this);
-    }
-    GL_Texture2D(char *file_name);
-    GL_Texture2D(GL_Image *image);
+    // TODO(lmk): This is pretty pointless.. just call gl_texture_2d
+    inline void load_from_file(char *file_name);
+    inline void load_from_image(GL_Image *image);
 };
 typedef GL_Texture2D Texture2D;
 
@@ -98,6 +94,7 @@ GL_Texture2D gl_texture_2d(GL_Image *image) {
     return result;
 }
 
+
 static GL_Image_Extension gl_get_image_file_extension(char *filename_nt) {
     int str_length = (int)strlen(filename_nt);
     
@@ -136,15 +133,6 @@ void gl_free_image(GL_Image *image) {
     *image = {};
 }
 
-GL_Image::GL_Image() {
-    initialize_internal(this);
-}
-
-
-GL_Image::GL_Image(char *file_name, int required_comp = 0) {
-    *this = gl_load_image(file_name, required_comp);
-}
-
 
 void GL_Image::load(char *file_name, int required_comp = 0) {
     *this = gl_load_image(file_name, required_comp);
@@ -164,11 +152,11 @@ GL_Texture2D gl_texture_2d(char *filename) {
     return result;
 }
 
-GL_Texture2D::GL_Texture2D(char *file_name) {
+void GL_Texture2D::load_from_file(char *file_name) {
     *this = gl_texture_2d(file_name);
 }
 
-GL_Texture2D::GL_Texture2D(GL_Image *image) {
+void GL_Texture2D::load_from_image(GL_Image *image) {
     *this = gl_texture_2d(image);
 }
 

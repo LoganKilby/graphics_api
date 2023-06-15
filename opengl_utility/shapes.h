@@ -217,8 +217,6 @@ struct GL_Texture_Rect {
 
 
 void GL_Texture_Rect::create(GLS_Textured_Polygon *_shader) {
-    zero_this(this);
-    
     shader = *_shader;
     usage = GL_DYNAMIC_DRAW;
     gl_array_buffer_2f2f(&buffer);

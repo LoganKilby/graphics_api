@@ -21,10 +21,13 @@ void process_game_input_events(Application_State *app_state) {
             case Mouse: {
                 if(event.key == GLFW_MOUSE_BUTTON_LEFT) {
                     if(event.action == GLFW_PRESS) {
+                        app_state->renderer.font_renderer.fade(&app_state->font, "fading text", 200, 200, 1.0f, v3(1, 1, 1), 1, 1);
                         //glfwSetInputMode(Platform.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
                     } else {
                         //glfwSetInputMode(Platform.window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
                     }
+                    
+                    
                 }
             } break;
             
@@ -176,6 +179,7 @@ void update_and_render(void *platform_memory) {
     Application_State *app_state = (Application_State *)platform_memory;
     
     gl_utility_context_ptr = &app_state->gl_utility_context;
+    Renderer *renderer = &app_state->renderer;
     
     if(!app_state->initialized) {
         gl_utility_init(&app_state->gl_utility_context);
@@ -204,7 +208,8 @@ void update_and_render(void *platform_memory) {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         
         // Fonts
-        create_font(&app_state->font, "fonts/consola.ttf", 48);
+        app_state->renderer.font_renderer.create();
+        load_font(&app_state->font, "fonts/consola.ttf", 48);
         
         app_state->scene.player.position = v3(0, 0, 0);
         
@@ -225,15 +230,13 @@ void update_and_render(void *platform_memory) {
         app_state->scene.editor.editing = 0;
         app_state->scene.camera.pan_speed = DEFAULT_ORBIT_CAMERA_PAN_SPEED;
         
-        app_state->smile1 = GL_Image("opengl_utility/textures/awesomeface.png");
-        app_state->smile2 = GL_Image("opengl_utility/textures/awesomeface_gray.png");
-        app_state->smile1t = GL_Texture2D(&app_state->smile1);
-        app_state->smile2t = GL_Texture2D(&app_state->smile2);
+        app_state->smile1.load("opengl_utility/textures/awesomeface.png");
+        app_state->smile2.load("opengl_utility/textures/awesomeface_gray.png");
+        app_state->smile1t.load_from_image(&app_state->smile1);
+        app_state->smile2t.load_from_image(&app_state->smile2);
         
         app_state->textured_polygon_shader.create();
         app_state->texture_rect.create(&app_state->textured_polygon_shader);
-        
-        app_state->font_renderer.create();
         
         int max_height = max(app_state->smile1.height, app_state->smile2.height);
         int total_width = app_state->smile1.width + app_state->smile2.width;
@@ -324,21 +327,24 @@ void update_and_render(void *platform_memory) {
     // TODO(lmk): Update projection only on viewport resize
     GL_Viewport viewport;
     glGetIntegerv(GL_VIEWPORT, (int *)&viewport);
-    mat4 projection = perspective(radians(45.0f), (f32)viewport.width / (f32)viewport.height, 0.1f, 100.0f);
+    renderer->projection_2d = ortho(0.0f, (float)viewport.width, 0.0f, (float)viewport.height);
+    renderer->projection_3d = perspective(radians(45.0f), (f32)viewport.width / (f32)viewport.height, 0.1f, 100.0f);
+    
     mat4 view = lookAt_orbit_camera(active_camera);
-    app_state->gl_utility_context.projection_3d = projection;
+    app_state->gl_utility_context.projection_3d = renderer->projection_3d;
     app_state->gl_utility_context.view_3d = view;
-    learnoepngl_camera(app_state, &projection, &view);
+    learnoepngl_camera(app_state, &renderer->projection_3d, &view);
     gl_cube(app_state->scene.player.position, &app_state->scene.player.basis, v4(1, 1, 1, 1));
     gl_basis(app_state->scene.player.position, &app_state->scene.player.basis);
-    
-    glm::mat4 projection_2d = glm::ortho(0.0f, (float)viewport.width, 0.0f, (float)viewport.height);
     
     int frames_per_second = (int)(1000.0f / Platform.delta_time);
     char str[100] = {};
     sprintf(str, "FPS: %d", Platform.average_fps);
-    app_state->font_renderer.text(&app_state->font, str, 25, 25, 1.0f, v3(1, 1, 1), &projection_2d);
     
+    v3 fps_color = v3(0, 1, 0);
+    renderer->font_renderer.text(&app_state->font, str, 25, 25, 1.0f, fps_color);
+    
+    renderer->render();
     
     //
     // Render editor

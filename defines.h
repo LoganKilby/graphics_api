@@ -31,8 +31,8 @@ typedef int8_t s8;
 
 typedef float f32;
 
-#define initialize_internal(this) memset(this, 0, sizeof(*this))
-#define zero_this(this) initialize_internal(this)
+//#define initialize_internal(this) memset(this, 0, sizeof(*this))
+//#define zero_this(this) initialize_internal(this)
 
 // converting to bytes
 #define kilobytes(kibs) kibs * 1024

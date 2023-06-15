@@ -134,10 +134,6 @@ struct GLS_Textured_Polygon {
     GLint u_sampler2D;
     GLint u_projection;
     
-    GLS_Textured_Polygon() {
-        initialize_internal(this);
-    }
-    
     void create() {
         GL_Compiled_Shaders s = {};
         s.vert = gl_compile_shader(global_gl_textured_polygon_vert, 0, GL_VERTEX_SHADER);

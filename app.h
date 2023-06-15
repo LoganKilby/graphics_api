@@ -14,6 +14,7 @@ struct Entity {
     Basis basis;
 };
 
+
 struct Scene {
     Entity player;
     
@@ -23,6 +24,19 @@ struct Scene {
     Editor_State editor;
     Orbit_Camera camera; // game play camera
 };
+
+
+struct Renderer {
+    mat4 projection_3d;
+    mat4 projection_2d;
+    Font_Renderer font_renderer;
+    
+    void render();
+};
+
+void Renderer::render() {
+    font_renderer.render(&projection_2d);
+}
 
 
 struct Application_State {
@@ -46,7 +60,8 @@ struct Application_State {
     Rect smile1_rect, smile2_rect;
     
     GLS_Textured_Polygon textured_polygon_shader;
-    Font_Renderer font_renderer;
+    
+    Renderer renderer;
     
     GL_Texture_Rect texture_rect;
     
