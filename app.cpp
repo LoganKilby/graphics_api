@@ -21,7 +21,15 @@ void process_game_input_events(Application_State *app_state) {
             case Mouse: {
                 if(event.key == GLFW_MOUSE_BUTTON_LEFT) {
                     if(event.action == GLFW_PRESS) {
-                        app_state->renderer.font_renderer.fade(&app_state->font, "fading text", 200, 200, 1.0f, v3(1, 1, 1), 1, 1);
+                        char *t = "fading text";
+                        app_state->renderer.font_renderer.fade(&app_state->font,
+                                                               "fading text", 
+                                                               200, 
+                                                               200, 
+                                                               1.0f, 
+                                                               v3(1, 1, 1),
+                                                               1,
+                                                               1);
                         //glfwSetInputMode(Platform.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
                     } else {
                         //glfwSetInputMode(Platform.window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
@@ -351,14 +359,6 @@ void update_and_render(void *platform_memory) {
     ImGui_BeginFrame();
     bool show_demo_window;
     ImGui::ShowDemoWindow(&show_demo_window);
-    ImGuiUtil_ShowTexture(&app_state->font.atlas.texture, "Font Atlas");
-    ImGuiUtil_ShowTexture(&app_state->test_atlas, "Test Atlas");
-    ImGuiUtil_ShowTexture(&app_state->smile1t, "Smile 1");
-    ImGuiUtil_ShowTexture(&app_state->smile2t, "Smile 2");
-    
-    static Rect window = {19, 430, 10, 31};
-    ImGui::Text("width: %d, height: %d", app_state->font.atlas.texture.width, app_state->font.atlas.texture.height);
-    
     ImGui_EndFrame();
     
 }

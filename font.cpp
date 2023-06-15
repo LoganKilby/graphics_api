@@ -9,10 +9,12 @@
 #include "stb_image_write.h"
 
 // NOTE(lmk): Only loading ascii 0-128. Could trivially support more, I just don't have any use for them.
-stbrp_rect *gather_glyph_rects(FT_Face face, u32 *count) {
+stbrp_rect *gather_glyph_rects(FT_Face face, u32 *count, u32 *rect_max_width, u32 *rect_max_height) {
     stbrp_rect *result = (stbrp_rect *)malloc(sizeof(stbrp_rect) * 128);
     memset(result, 0, sizeof(stbrp_rect) * 128);
     
+    u32 max_width = 0;
+    u32 max_height = 0;
     int glyphs_loaded = 0;
     for(int ascii_char_code = 0; ascii_char_code < 128; ++ascii_char_code) {
         if(FT_Load_Char(face, ascii_char_code, FT_LOAD_BITMAP_METRICS_ONLY) == 0) {
@@ -21,6 +23,9 @@ stbrp_rect *gather_glyph_rects(FT_Face face, u32 *count) {
                 result[glyphs_loaded].h = face->glyph->bitmap.rows;
                 result[glyphs_loaded].id = ascii_char_code;
                 ++glyphs_loaded;
+                
+                if(face->glyph->bitmap.width > max_width) max_width = face->glyph->bitmap.width;
+                if(face->glyph->bitmap.rows > max_height) max_height = face->glyph->bitmap.rows;
             } else {
                 fprintf(stderr, "FreeType::FT_Load_Char(): glyph does not have bitmap: %c\n", ascii_char_code);
             }
@@ -32,6 +37,8 @@ stbrp_rect *gather_glyph_rects(FT_Face face, u32 *count) {
     realloc(result, sizeof(stbrp_rect) * glyphs_loaded);
     
     *count = glyphs_loaded;
+    *rect_max_width = max_width;
+    *rect_max_height = max_height;
     
     return result;
 }
@@ -69,13 +76,277 @@ struct Font_Vertex {
 };
 
 
+void get_lr_kerning_distance(FT_Face face, Kerning_Table *table, int c1) {
+    if(FT_HAS_KERNING(face)) {
+        FT_Vector delta;
+        int g1, g2;
+        
+        g1 = FT_Get_Char_Index(face, c1);
+        
+        for(int c2 = 0; c2 < 128; ++c2) {
+            g2 = FT_Get_Char_Index(face, c2);
+            
+            FT_Get_Kerning(face, g1, g2, FT_KERNING_DEFAULT, &delta);
+            table->left[c1].right[c2] = { delta.x >> 6, delta.y >> 6 };
+            
+            FT_Get_Kerning(face, g2, g1, FT_KERNING_DEFAULT, &delta);
+            table->left[c2].right[c1] = { delta.x >> 6, delta.y >> 6 };
+        }
+    }
+}
+
+
+void minimum_bounding_box_solver(stbrp_rect *rects, int rect_count, int *width_out, int *height_out) {
+    // (https://arxiv.org/ftp/arxiv/papers/1402/1402.0557.pdf : 3.3.1 Anytime Algorithm)
+    // 1. find a greedy solution on a bounding box whose height is equal to the tallest rectangle
+    // 2. Call containment solver
+    // 3. IF the previous attempt succeeded, or if its area is greater than the area of the best solution seen so far, decrease the width
+    // by one unit and repeat.
+    //    ELSE if the previous attemp failed, increase the height of the bounding box by one unit and repeat.
+    // 4. Terminate when the width of the bounding box is less than the width of the widest rectangle.
+    
+    // NOTE(lmk): This is reallyyy slow, but works for now...
+    
+    TIMED_BLOCK;
+    
+    int tallest_height = 0;
+    int widest_width = 0;
+    int width_sum = 0;
+    int height_sum = 0;
+    for(stbrp_rect *rect = rects; rect < rects + rect_count; ++rect) {
+        if(rect->h > tallest_height) tallest_height = rect->h;
+        if(rect->w > widest_width) widest_width = rect->w;
+        width_sum += rect->w;
+        height_sum += rect->h;
+    }
+    
+    int bbox_width = width_sum;
+    int bbox_height = tallest_height;
+    int bbox_area = bbox_width * bbox_height;
+    
+    int node_count = bbox_width;
+    stbrp_node *nodes = (stbrp_node *)malloc(sizeof(stbrp_node) * node_count);
+    memset(nodes, 0, sizeof(stbrp_node) * node_count);
+    stbrp_context context = {};
+    
+    int current_bbox_width = bbox_width;
+    int current_bbox_height = bbox_height;
+    int current_bbox_area = current_bbox_width * current_bbox_height;
+    
+    int smallest_area = current_bbox_area;
+    f32 smallest_diagonal = sqrtf((f32)squared(current_bbox_width) + (f32)squared(current_bbox_height));
+    int width_result = 0;
+    int height_result = 1;
+    
+    for(;;) {
+        current_bbox_area = current_bbox_width * current_bbox_height;
+        stbrp_init_target(&context, current_bbox_width, current_bbox_height, nodes, node_count);
+        
+        if(stbrp_pack_rects(&context, rects, rect_count)) {
+            f32 diagonal = sqrtf((f32)squared(current_bbox_width) + (f32)squared(current_bbox_height));
+            
+            if(diagonal < smallest_diagonal) {
+                smallest_diagonal = diagonal;
+                smallest_area = current_bbox_area;
+                width_result = current_bbox_width;
+                height_result = current_bbox_height;
+            }
+            
+            --current_bbox_width;
+        } else if (current_bbox_area > smallest_area) {
+            --current_bbox_width;
+        } else {
+            ++current_bbox_height;
+        }
+        
+        if(current_bbox_width < widest_width) break;
+    }
+    
+    stbrp_init_target(&context, width_result, height_result, nodes, node_count);
+    stbrp_pack_rects(&context, rects, rect_count);
+    *width_out = width_result;
+    *height_out = height_result;
+}
+
+
 struct Font {
     Font_Texture_Atlas atlas;
     Kerning_Table kerning;
     int pixel_size;
     
     Font_Vertex *get_vertices(char *str, int screen_x, int screen_y, float scale, v3 color, int *count);
+    int text_length(char *str, float scale);
 };
+
+
+void load_font(Font *font, char *font_file_path, int pixel_size) {
+    FT_Library library;
+    if(FT_Init_FreeType(&library)) {
+        fail("FreeType::FT_Init_FreeType(): failed to initialize library");
+        return;
+    }
+    
+    FT_Face face;
+    if(FT_New_Face(library, font_file_path, 0, &face)) {
+        fail("FreeType::FT_New_Face(): failed to load font");
+    }
+    
+    FT_Set_Pixel_Sizes(face, 0, pixel_size);
+    font->pixel_size = pixel_size;
+    
+    u32 rect_count, max_bitmap_width, max_bitmap_height;
+    stbrp_rect *rects = gather_glyph_rects(face, &rect_count, &max_bitmap_width, &max_bitmap_height);
+    
+    // TODO(lmk): There's a lot we could cache to speed this up in exchange for flexibility.
+    // Caching the texture, the min bbox dimensions, etc.
+    int bbox_width, bbox_height;
+    minimum_bounding_box_solver(rects, rect_count, &bbox_width, &bbox_height);
+    
+    font->atlas.texture.width = bbox_width;
+    font->atlas.texture.height = bbox_height;
+    
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glGenTextures(1, &font->atlas.texture.id);
+    glBindTexture(GL_TEXTURE_2D, font->atlas.texture.id);
+    
+    glTexImage2D(GL_TEXTURE_2D,
+                 0,
+                 GL_RED,
+                 bbox_width,
+                 bbox_height,
+                 0,
+                 GL_RED,
+                 GL_UNSIGNED_BYTE,
+                 0);
+    
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    
+    for(stbrp_rect *rect = rects; rect < rects + rect_count; ++rect) {
+        int ascii_code = rect->id;
+        if(FT_Load_Char(face, ascii_code, FT_LOAD_RENDER) == 0) {
+            font->atlas.location[ascii_code].bitmap = {
+                rect->x,
+                rect->y,
+                (int)face->glyph->bitmap.width,
+                (int)face->glyph->bitmap.rows
+            };
+            
+            font->atlas.location[ascii_code].bearing = v2i(face->glyph->bitmap_left, face->glyph->bitmap_top);
+            font->atlas.location[ascii_code].advance = (u32)face->glyph->advance.x >> 6;
+            
+            get_lr_kerning_distance(face, &font->kerning, ascii_code);
+            
+            // TODO(lmk): Would it be faster to create our own image and and pass to OpenGL in a single call?
+            glTexSubImage2D(GL_TEXTURE_2D, 0, rect->x, rect->y, rect->w, rect->h, GL_RED, GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer);
+        }
+    }
+    
+    if(font->atlas.location[' '].advance == 0) {
+        font->atlas.location[' '].advance = max_bitmap_width;
+    }
+    
+    FT_Done_Face(face);
+    FT_Done_FreeType(library);
+}
+
+
+Font_Vertex *Font::get_vertices(char *str, int screen_x, int screen_y, float scale, v3 color, int *vertex_count) {
+    size_t length = strlen(str);
+    if(length == 0) {
+        *vertex_count = 0;
+        return 0;
+    }
+    
+    // TODO(lmk): Think of a way to buffer up vertices every frame that doesn't involve heap allocations like this
+    Font_Vertex *result = (Font_Vertex *)malloc(sizeof(Font_Vertex) * length * 6);
+    memset(result, 0, sizeof(Font_Vertex) * length);
+    *vertex_count = (int)length * 6;
+    
+    char previous_char = -1;
+    char current_char;
+    Font_Vertex *vertex;
+    f32 atlas_width = (f32)atlas.texture.width;
+    f32 atlas_height = (f32)atlas.texture.height;
+    for (size_t str_index = 0; str_index < length; ++str_index) {
+        current_char = str[str_index];
+        vertex = &result[str_index * 6];
+        
+        Font_Texture_Atlas_Location *location = &atlas.location[current_char];
+        
+        f32 x = screen_x + (location->bearing.x * scale);
+        f32 y = screen_y - (location->bitmap.height - location->bearing.y) * scale;
+        f32 w = location->bitmap.width * scale;
+        f32 h = location->bitmap.height * scale;
+        
+        f32 left = location->bitmap.x / atlas_width;
+        f32 right = (location->bitmap.x + location->bitmap.width) / atlas_width;
+        f32 bottom =  (location->bitmap.y / atlas_height);
+        f32 top = (location->bitmap.y + location->bitmap.height) / atlas_height;
+        
+        vertex[0].pos = {x, y+h};
+        vertex[0].uv = { left, bottom};
+        vertex[0].color = color;
+        vertex[0].t = 0;
+        
+        vertex[1].pos = {x, y};
+        vertex[1].uv = {left, top};
+        vertex[1].color = color;
+        vertex[1].t = 0;
+        
+        vertex[2].pos = {x+w, y};
+        vertex[2].uv = {right, top};
+        vertex[2].t = 0;
+        vertex[2].color = color;
+        
+        // TODO(lmk): Could use an element buffer
+        vertex[3] = vertex[0];
+        vertex[4] = vertex[2];
+        
+        vertex[5].pos = {x+w, y+h};
+        vertex[5].uv = {right, bottom};
+        vertex[5].color = color;
+        vertex[5].t = 0;
+        
+        // advance cursors for next glyph
+        screen_x += (int)(location->advance * scale);
+        
+        if(previous_char != -1) 
+            screen_x += kerning.left[previous_char].right[current_char].x;
+        
+        previous_char = current_char;
+    }
+    
+    return result;
+}
+
+
+int Font::text_length(char *str, float scale) {
+    float screen_x = 0;
+    char previous_char = -1;
+    char current_char;
+    size_t length = strlen(str);
+    for (size_t str_index = 0; str_index < length; ++str_index) {
+        current_char = str[str_index];
+        Font_Texture_Atlas_Location *location = &atlas.location[current_char];
+        
+        screen_x += ((location->bearing.x + location->advance) * scale);
+        
+        if(previous_char != -1) 
+            screen_x += kerning.left[previous_char].right[current_char].x;
+        
+        previous_char = current_char;
+    }
+    
+    return (int)screen_x;
+}
+
+
+//
+// Font rendering
+//
 
 
 struct GLS_Font2D {
@@ -96,7 +367,6 @@ struct GLS_Font2D {
         u_t = gl_get_uniform_location(program, "u_t");
     }
 };
-
 
 struct Font_Draw_Command {
     Font *font;
@@ -193,169 +463,6 @@ void Font_Renderer::render(mat4 *projection_2d) {
 }
 
 
-void get_lr_kerning_distance(FT_Face face, Kerning_Table *table, int c1) {
-    if(FT_HAS_KERNING(face)) {
-        FT_Vector delta;
-        int g1, g2;
-        
-        g1 = FT_Get_Char_Index(face, c1);
-        
-        for(int c2 = 0; c2 < 128; ++c2) {
-            g2 = FT_Get_Char_Index(face, c2);
-            
-            FT_Get_Kerning(face, g1, g2, FT_KERNING_DEFAULT, &delta);
-            table->left[c1].right[c2] = { delta.x >> 6, delta.y >> 6 };
-            
-            FT_Get_Kerning(face, g2, g1, FT_KERNING_DEFAULT, &delta);
-            table->left[c2].right[c1] = { delta.x >> 6, delta.y >> 6 };
-        }
-    }
-}
-
-
-void minimum_bounding_box_solver(stbrp_rect *rects, int rect_count, int *width_out, int *height_out) {
-    // (https://arxiv.org/ftp/arxiv/papers/1402/1402.0557.pdf : 3.3.1 Anytime Algorithm)
-    // 1. find a greedy solution on a bounding box whose height is equal to the tallest rectangle
-    // 2. Call containment solver
-    // 3. IF the previous attempt succeeded, or if its area is greater than the area of the best solution seen so far, decrease the width
-    // by one unit and repeat.
-    //    ELSE if the previous attemp failed, increase the height of the bounding box by one unit and repeat.
-    // 4. Terminate when the width of the bounding box is less than the width of the widest rectangle.
-    
-    // NOTE(lmk): This is reallyyy slow, but works for now...
-    
-    TIMED_BLOCK;
-    
-    int tallest_height = 0;
-    int widest_width = 0;
-    int width_sum = 0;
-    int height_sum = 0;
-    for(stbrp_rect *rect = rects; rect < rects + rect_count; ++rect) {
-        if(rect->h > tallest_height) tallest_height = rect->h;
-        if(rect->w > widest_width) widest_width = rect->w;
-        width_sum += rect->w;
-        height_sum += rect->h;
-    }
-    
-    int bbox_width = width_sum;
-    int bbox_height = tallest_height;
-    int bbox_area = bbox_width * bbox_height;
-    
-    int node_count = bbox_width;
-    stbrp_node *nodes = (stbrp_node *)malloc(sizeof(stbrp_node) * node_count);
-    memset(nodes, 0, sizeof(stbrp_node) * node_count);
-    stbrp_context context = {};
-    
-    int current_bbox_width = bbox_width;
-    int current_bbox_height = bbox_height;
-    int current_bbox_area = current_bbox_width * current_bbox_height;
-    
-    int smallest_area = current_bbox_area;
-    f32 smallest_diagonal = sqrtf((f32)squared(current_bbox_width) + (f32)squared(current_bbox_height));
-    int width_result = 0;
-    int height_result = 1;
-    
-    for(;;) {
-        current_bbox_area = current_bbox_width * current_bbox_height;
-        stbrp_init_target(&context, current_bbox_width, current_bbox_height, nodes, node_count);
-        
-        if(stbrp_pack_rects(&context, rects, rect_count)) {
-            f32 diagonal = sqrtf((f32)squared(current_bbox_width) + (f32)squared(current_bbox_height));
-            
-            if(diagonal < smallest_diagonal) {
-                smallest_diagonal = diagonal;
-                smallest_area = current_bbox_area;
-                width_result = current_bbox_width;
-                height_result = current_bbox_height;
-            }
-            
-            --current_bbox_width;
-        } else if (current_bbox_area > smallest_area) {
-            --current_bbox_width;
-        } else {
-            ++current_bbox_height;
-        }
-        
-        if(current_bbox_width < widest_width) break;
-    }
-    
-    stbrp_init_target(&context, width_result, height_result, nodes, node_count);
-    stbrp_pack_rects(&context, rects, rect_count);
-    *width_out = width_result;
-    *height_out = height_result;
-}
-
-
-void load_font(Font *font, char *font_file_path, int pixel_size) {
-    FT_Library library;
-    if(FT_Init_FreeType(&library)) {
-        fail("FreeType::FT_Init_FreeType(): failed to initialize library");
-        return;
-    }
-    
-    FT_Face face;
-    if(FT_New_Face(library, font_file_path, 0, &face)) {
-        fail("FreeType::FT_New_Face(): failed to load font");
-    }
-    
-    FT_Set_Pixel_Sizes(face, 0, pixel_size);
-    font->pixel_size = pixel_size;
-    
-    u32 rect_count;
-    stbrp_rect *rects = gather_glyph_rects(face, &rect_count);
-    
-    // TODO(lmk): There's a lot we could cache to speed this up in exchange for flexibility.
-    // Caching the texture, the min bbox dimensions, etc.
-    int bbox_width, bbox_height;
-    minimum_bounding_box_solver(rects, rect_count, &bbox_width, &bbox_height);
-    
-    font->atlas.texture.width = bbox_width;
-    font->atlas.texture.height = bbox_height;
-    
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glGenTextures(1, &font->atlas.texture.id);
-    glBindTexture(GL_TEXTURE_2D, font->atlas.texture.id);
-    
-    glTexImage2D(GL_TEXTURE_2D,
-                 0,
-                 GL_RED,
-                 bbox_width,
-                 bbox_height,
-                 0,
-                 GL_RED,
-                 GL_UNSIGNED_BYTE,
-                 0);
-    
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    
-    for(stbrp_rect *rect = rects; rect < rects + rect_count; ++rect) {
-        int ascii_code = rect->id;
-        if(FT_Load_Char(face, ascii_code, FT_LOAD_RENDER) == 0) {
-            font->atlas.location[ascii_code].bitmap = {
-                rect->x,
-                rect->y,
-                (int)face->glyph->bitmap.width,
-                (int)face->glyph->bitmap.rows
-            };
-            
-            font->atlas.location[ascii_code].bearing = v2i(face->glyph->bitmap_left, face->glyph->bitmap_top);
-            font->atlas.location[ascii_code].advance = (u32)face->glyph->advance.x >> 6;
-            
-            get_lr_kerning_distance(face, &font->kerning, ascii_code);
-            
-            // TODO(lmk): Would it be faster to create our own image and and pass to OpenGL in a single call?
-            glTexSubImage2D(GL_TEXTURE_2D, 0, rect->x, rect->y, rect->w, rect->h, GL_RED, GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer);
-        }
-    }
-    
-    FT_Done_Face(face);
-    FT_Done_FreeType(library);
-}
-
-
 void Font_Renderer::push(Font_Draw_Command *command) {
     if(command_list_count < countof(command_list)) {
         command_list[command_list_count++] = *command;
@@ -394,72 +501,4 @@ void Font_Renderer::fade(Font *font, char *str, int screen_x, int screen_y, f32 
     command.active = 1;
     
     push(&command);
-}
-
-
-Font_Vertex *Font::get_vertices(char *str, int screen_x, int screen_y, float scale, v3 color, int *vertex_count) {
-    size_t length = strlen(str);
-    if(length == 0) {
-        *vertex_count = 0;
-        return 0;
-    }
-    
-    // TODO(lmk): Think of a way to buffer up vertices every frame that doesn't involve heap allocations like this
-    Font_Vertex *result = (Font_Vertex *)malloc(sizeof(Font_Vertex) * length * 6);
-    memset(result, 0, sizeof(Font_Vertex) * length);
-    *vertex_count = (int)length * 6;
-    
-    char previous_char = -1;
-    char current_char;
-    Font_Vertex *vertex;
-    f32 atlas_width = (f32)atlas.texture.width;
-    f32 atlas_height = (f32)atlas.texture.height;
-    for (size_t str_index = 0; str_index < length; ++str_index) {
-        current_char = str[str_index];
-        vertex = &result[str_index * 6];
-        
-        Font_Texture_Atlas_Location *location = &atlas.location[current_char];
-        
-        f32 x = screen_x + (location->bearing.x * scale);
-        f32 y = screen_y - (location->bitmap.height - location->bearing.y) * scale;
-        f32 w = location->bitmap.width * scale;
-        f32 h = location->bitmap.height * scale;
-        
-        f32 left = location->bitmap.x / atlas_width;
-        f32 right = (location->bitmap.x + location->bitmap.width) / atlas_width;
-        f32 bottom =  (location->bitmap.y / atlas_height);
-        f32 top = (location->bitmap.y + location->bitmap.height) / atlas_height;
-        
-        vertex[0].pos = {x, y+h};
-        vertex[0].uv = { left, bottom};
-        vertex[0].color = color;
-        vertex[0].t = 0;
-        
-        vertex[1].pos = {x, y};
-        vertex[1].uv = {left, top};
-        vertex[1].color = color;
-        vertex[1].t = 0;
-        
-        vertex[2].pos = {x+w, y};
-        vertex[2].uv = {right, top};
-        vertex[2].t = 0;
-        vertex[2].color = color;
-        
-        // TODO(lmk): Could use an element buffer
-        vertex[3] = vertex[0];
-        vertex[4] = vertex[2];
-        
-        vertex[5].pos = {x+w, y+h};
-        vertex[5].uv = {right, bottom};
-        vertex[5].color = color;
-        vertex[5].t = 0;
-        
-        // advance cursors for next glyph
-        screen_x += (int)(location->advance * scale);
-        
-        if(previous_char != -1) 
-            screen_x += kerning.left[previous_char].right[current_char].x; 
-    }
-    
-    return result;
 }
