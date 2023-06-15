@@ -41,10 +41,9 @@ struct __FILETIME {
 #define debug_hot_reload_app_dll(dll_out, proc_address_out)
 #endif
 
-
-
 #define WAS_DOWN(lParam) ((lParam & (1 << 30)) != 0)
 #define IS_DOWN(lParam) ((lParam & (1UL << 31)) == 0)
+
 
 class High_Resolution_Interval
 {

@@ -20,10 +20,6 @@
 // NOTE(lmk): Some library, I think GLM, includes cassert, so we have to undefine it
 #undef assert
 #define assert(expression) if(!(expression)) { *(int *)0 = 0; }
-void glfw_mouse_scroll_callback(GLFWwindow *window, double x_offset, double y_offset);
-void glfw_window_focus_callback(GLFWwindow *window, int focused);
-bool is_mouse_button_pressed(int);
-bool is_key_pressed(int);
 
 struct Platform_Stuff {
     GLFWwindow *window;
@@ -32,7 +28,9 @@ struct Platform_Stuff {
     Input_State input_state;
 } global Platform;
 
-bool get_next_input_event(Input_Event *event);
+bool is_mouse_button_pressed(int);
+bool is_key_pressed(int);
+
 
 #include "camera.cpp"
 #include "editor.cpp"
@@ -41,6 +39,8 @@ bool get_next_input_event(Input_Event *event);
 #include "app.h"
 #include "app.cpp"
 
+void glfw_mouse_scroll_callback(GLFWwindow *window, double x_offset, double y_offset);
+void glfw_window_focus_callback(GLFWwindow *window, int focused);
 
 bool is_mouse_button_pressed(int button) {
     return (glfwGetMouseButton(Platform.window, button) == GLFW_PRESS);
@@ -106,6 +106,7 @@ void glfw_mouse_button_callback(GLFWwindow *window, int button, int action, int 
     push_input_event(&Platform.input_state.event_list, event);
 }
 
+
 int main() {
     Platform = {};
     
@@ -144,8 +145,9 @@ int main() {
     }
     
     Memory_Arena app_memory = {};
-    app_memory.size = APP_MEMORY_SIZE;
+    app_memory.size = sizeof(Application_State) + TRANSIENT_ARENA_SIZE;
     app_memory.base_address = VirtualAlloc(0, sizeof(Application_State), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    transient_arena = create_arena_local((u8 *)app_memory.base_address + sizeof(Application_State), TRANSIENT_ARENA_SIZE);
     
 #if DEBUG
     assert(SetCurrentDirectory(DEBUG_WORKING_DIR));
@@ -165,6 +167,7 @@ int main() {
         last_frame_time = frame_time;
         
         ms_sum += Platform.delta_time;
+        
         if(ms_sum > 0.5) {
             float average_frame_time = ms_sum / frame_count;
             Platform.average_fps = (int)(1000.0f / average_frame_time);

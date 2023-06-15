@@ -63,6 +63,10 @@ struct Font_Texture_Atlas_Location {
 
 
 struct Font_Texture_Atlas {
+    // NOTE(lmk): Using max bitmap dimension for spacing the ' ' character and for new lines
+    int max_bitmap_width;
+    int max_bitmap_height;
+    
     Font_Texture_Atlas_Location location[128];
     GL_Texture2D texture;
 };
@@ -72,7 +76,6 @@ struct Font_Vertex {
     v2 pos;
     v2 uv;
     v3 color;
-    float t;
 };
 
 
@@ -174,7 +177,7 @@ struct Font {
     Kerning_Table kerning;
     int pixel_size;
     
-    Font_Vertex *get_vertices(char *str, int screen_x, int screen_y, float scale, v3 color, int *count);
+    void get_vertices(char *str, int str_len, v2i screen_pos, float scale, v3 color, Font_Vertex *vertices);
     int text_length(char *str, float scale);
 };
 
@@ -196,6 +199,9 @@ void load_font(Font *font, char *font_file_path, int pixel_size) {
     
     u32 rect_count, max_bitmap_width, max_bitmap_height;
     stbrp_rect *rects = gather_glyph_rects(face, &rect_count, &max_bitmap_width, &max_bitmap_height);
+    
+    font->atlas.max_bitmap_width = max_bitmap_width;
+    font->atlas.max_bitmap_height = max_bitmap_height;
     
     // TODO(lmk): There's a lot we could cache to speed this up in exchange for flexibility.
     // Caching the texture, the min bbox dimensions, etc.
@@ -244,39 +250,41 @@ void load_font(Font *font, char *font_file_path, int pixel_size) {
         }
     }
     
-    if(font->atlas.location[' '].advance == 0) {
-        font->atlas.location[' '].advance = max_bitmap_width;
-    }
-    
     FT_Done_Face(face);
     FT_Done_FreeType(library);
 }
 
 
-Font_Vertex *Font::get_vertices(char *str, int screen_x, int screen_y, float scale, v3 color, int *vertex_count) {
-    size_t length = strlen(str);
-    if(length == 0) {
-        *vertex_count = 0;
-        return 0;
-    }
-    
+// NOTE(lmk): Must provide a buffer large enough to store the vertices. 6 vertices per letter
+void Font::get_vertices(char *str, int str_len, v2i screen_pos, float scale, v3 color, Font_Vertex *vertices) {
     // TODO(lmk): Think of a way to buffer up vertices every frame that doesn't involve heap allocations like this
-    Font_Vertex *result = (Font_Vertex *)malloc(sizeof(Font_Vertex) * length * 6);
-    memset(result, 0, sizeof(Font_Vertex) * length);
-    *vertex_count = (int)length * 6;
+    //Font_Vertex *result = (Font_Vertex *)malloc(sizeof(Font_Vertex) * length * 6);
+    //memset(result, 0, sizeof(Font_Vertex) * length);
     
+    int current_screen_x = screen_pos.x;
     char previous_char = -1;
     char current_char;
     Font_Vertex *vertex;
     f32 atlas_width = (f32)atlas.texture.width;
     f32 atlas_height = (f32)atlas.texture.height;
-    for (size_t str_index = 0; str_index < length; ++str_index) {
+    for (size_t str_index = 0; str_index < str_len; ++str_index) {
         current_char = str[str_index];
-        vertex = &result[str_index * 6];
         
+        if(current_char == ' ') {
+            current_screen_x += atlas.max_bitmap_width;
+            continue;
+        }
+        
+        if(current_char == '\n') {
+            screen_y -= atlas.max_bitmap_height;
+            current_screen_x = screen_x;
+            continue;
+        }
+        
+        vertex = &vertices[str_index * 6];
         Font_Texture_Atlas_Location *location = &atlas.location[current_char];
         
-        f32 x = screen_x + (location->bearing.x * scale);
+        f32 x = current_screen_x + (location->bearing.x * scale);
         f32 y = screen_y - (location->bitmap.height - location->bearing.y) * scale;
         f32 w = location->bitmap.width * scale;
         f32 h = location->bitmap.height * scale;
@@ -289,47 +297,49 @@ Font_Vertex *Font::get_vertices(char *str, int screen_x, int screen_y, float sca
         vertex[0].pos = {x, y+h};
         vertex[0].uv = { left, bottom};
         vertex[0].color = color;
-        vertex[0].t = 0;
         
         vertex[1].pos = {x, y};
         vertex[1].uv = {left, top};
         vertex[1].color = color;
-        vertex[1].t = 0;
         
         vertex[2].pos = {x+w, y};
         vertex[2].uv = {right, top};
-        vertex[2].t = 0;
         vertex[2].color = color;
         
-        // TODO(lmk): Could use an element buffer
+        // TODO(lmk): Need to use an element buffer
         vertex[3] = vertex[0];
         vertex[4] = vertex[2];
         
         vertex[5].pos = {x+w, y+h};
         vertex[5].uv = {right, bottom};
         vertex[5].color = color;
-        vertex[5].t = 0;
         
-        // advance cursors for next glyph
-        screen_x += (int)(location->advance * scale);
+        current_screen_x += (int)(location->advance * scale);
         
         if(previous_char != -1) 
-            screen_x += kerning.left[previous_char].right[current_char].x;
+            current_screen_x += kerning.left[previous_char].right[current_char].x;
         
         previous_char = current_char;
     }
-    
-    return result;
 }
 
 
 int Font::text_length(char *str, float scale) {
     float screen_x = 0;
+    float max_x = 0;
     char previous_char = -1;
     char current_char;
     size_t length = strlen(str);
     for (size_t str_index = 0; str_index < length; ++str_index) {
         current_char = str[str_index];
+        
+        if(current_char == '\n') {
+            if(screen_x > max_x) max_x = screen_x;
+            
+            screen_x = 0;
+            continue;
+        }
+        
         Font_Texture_Atlas_Location *location = &atlas.location[current_char];
         
         screen_x += ((location->bearing.x + location->advance) * scale);
@@ -340,7 +350,7 @@ int Font::text_length(char *str, float scale) {
         previous_char = current_char;
     }
     
-    return (int)screen_x;
+    return (int)max(screen_x, max_x);
 }
 
 
@@ -502,3 +512,22 @@ void Font_Renderer::fade(Font *font, char *str, int screen_x, int screen_y, f32 
     
     push(&command);
 }
+
+
+//
+// I need something emit draw calls over multiple frames, like an 'animation manager' or something?
+//
+
+struct Msg_Notifier {
+    // calculates the screen center
+    // calculates the text length
+    // centers the text
+    // stacks multiples instances of text, drawn separately
+    
+    // NOTE(lmk): I want to store the vertices that are used instead of freeing every frame...
+    // so that means the Font_Renderer is not in charge of freeing vertices? If that's the case, 
+    // where does that get managed?
+    Font_Renderer *renderer;
+    
+    
+};

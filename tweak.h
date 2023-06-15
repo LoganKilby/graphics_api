@@ -12,5 +12,6 @@
 #define DEFAULT_PLAYER_SPEED 8.0f
 #define MAX_SCENE_OBJECTS 15
 #define DEBUG_SCENE_NAME "persistent_scene.scene"
+#define TRANSIENT_ARENA_SIZE kilobytes(16)
 
 #endif //TWEAK_H

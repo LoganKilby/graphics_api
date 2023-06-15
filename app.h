@@ -49,7 +49,6 @@ struct Application_State {
     u32 test_vbo;
     u32 test_program;
     u32 texture_mix_program;
-    u32 font_program;
     
     GL_Texture2D test_atlas;
     GL_Image smile1;

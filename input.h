@@ -3,24 +3,36 @@
 #ifndef INPUT_H
 #define INPUT_H
 
+
 enum Input_Device_Type {
     Mouse,
-    Keyboard
+    Keyboard,
+    Window
 };
 
+
+enum Window_Event {
+    Framebuffer_Resize,
+};
+
+
 struct Input_Event {
+    int action;
     int key;
     int scancode;
-    int action;
     int mods;
+    
     Input_Device_Type device;
 };
 
+
 #define MAX_BUFFERED_INPUT_EVENTS 15
+
 struct Input_Event_List {
     u32 count;
     Input_Event events[MAX_BUFFERED_INPUT_EVENTS];
 };
+
 
 struct Input_State {
     v2 mouse_pos;
@@ -29,6 +41,10 @@ struct Input_State {
     Input_Event_List event_list;
 };
 
+
+bool get_next_input_event(Input_Event *event);
+
+
 internal Input_Event pop_input_event(Input_Event_List *list) {
     Input_Event result = list->events[0];
     memcpy(list->events, &list->events[1], sizeof(Input_Event) * (countof(list->events) - 1));
@@ -36,6 +52,7 @@ internal Input_Event pop_input_event(Input_Event_List *list) {
     
     return result;
 }
+
 
 internal void push_input_event(Input_Event_List *event_list, Input_Event event) {
     if(event_list->count < countof(event_list->events)) 

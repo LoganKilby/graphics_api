@@ -1,3 +1,8 @@
+void visual_notify() {
+    
+}
+
+
 void save_scene_data(Scene *scene) {
     cfile_write(DEBUG_SCENE_NAME, scene, sizeof(Scene));
 }
@@ -12,8 +17,7 @@ void load_scene_data(Scene *scene_dest) {
 }
 
 
-// NOTE(lmk): Some game behavior can be determined by simply the polled state, like if the left mouse button is down right now.
-// Other behavior depends on when exactly the event happened. That's what this function is for
+// NOTE(lmk): processes events trigger immediately by input
 void process_game_input_events(Application_State *app_state) {
     Input_Event event;
     while(get_next_input_event(&event)) {
@@ -22,8 +26,11 @@ void process_game_input_events(Application_State *app_state) {
                 if(event.key == GLFW_MOUSE_BUTTON_LEFT) {
                     if(event.action == GLFW_PRESS) {
                         char *t = "fading text";
+                        int text_length = app_state->font.text_length(t, 1);
+                        
+                        
                         app_state->renderer.font_renderer.fade(&app_state->font,
-                                                               "fading text", 
+                                                               "fading\ntext", 
                                                                200, 
                                                                200, 
                                                                1.0f, 
@@ -201,10 +208,6 @@ void update_and_render(void *platform_memory) {
         sh.vert = gl_compile_shader("shaders/v3f_uv2f.vert", GL_VERTEX_SHADER);
         sh.frag = gl_compile_shader("shaders/texture_mix_v3f_uv2f.frag", GL_FRAGMENT_SHADER);
         app_state->texture_mix_program = gl_link_program(&sh);
-        
-        sh.vert = gl_compile_shader("shaders/font_shader.vert", GL_VERTEX_SHADER);
-        sh.frag = gl_compile_shader("shaders/font_shader.frag", GL_FRAGMENT_SHADER);
-        app_state->font_program = gl_link_program(&sh);
         
         gl_array_buffer_3f2f(&app_state->v3f_uv2f);
         app_state->alexstrasza = gl_texture_2d("opengl_utility/textures/alexstrasza.jpg");

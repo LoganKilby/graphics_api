@@ -11,6 +11,9 @@ struct Memory_Arena {
     u64 allocated;
 };
 
+global Memory_Arena transient_arena;
+
+
 Memory_Arena create_arena_local(void *memory, u64 size) {
     Memory_Arena result = {};
     result.base_address = memory;
@@ -20,16 +23,18 @@ Memory_Arena create_arena_local(void *memory, u64 size) {
     return result;
 }
 
-global Memory_Arena scratch_arena = {};
+
+// NOTE(lmk): resets the arena without deallocating any memory
+inline void reset_arena(Memory_Arena* arena) { arena->allocated = 0; }
 
 // NOTE(lmk): Allocates if enough memory, no bookkeeping
-void *scratch_allocate(u64 size) {
-    assert(scratch_arena.base_address);
+void *transient_alloc(u64 size) {
+    assert(transient_arena.base_address);
     u8 *result = 0;
     
-    if(size < (scratch_arena.size - scratch_arena.allocated)) {
-        result = (u8 *)scratch_arena.base_address + scratch_arena.allocated;
-        scratch_arena.allocated += size;
+    if(size < (transient_arena.size - transient_arena.allocated)) {
+        result = (u8 *)transient_arena.base_address + transient_arena.allocated;
+        transient_arena.allocated += size;
         memset(result, 0, size);
     } else {
         assert(0); // NOTE(lmk): not enough memory
