@@ -40,5 +40,4 @@ typedef float f32;
 #define gigabytes(gigs) gigs * megabytes(1024)
 #define countof(array) (sizeof(array) / sizeof(array[0]))
 
-
 #endif //DEFINES_H

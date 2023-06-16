@@ -215,18 +215,9 @@ void update_and_render(void *platform_memory) {
         
         // Fonts
         load_font(&app_state->consola, "fonts/consola.ttf", 48);
-        
-        v2 screen_center = {
-            (renderer->viewport.width - renderer->viewport.x) / 2,
-            (renderer->viewport.height - renderer->viewport.y) / 2
-        };
-        
+        v2 notify_origin(renderer->viewport.width / 2, renderer->viewport.height - (renderer->viewport.height / 8));
         v3 notify_color = v3(1, 1, 1);
-        app_state->notifier.create(&renderer->font_renderer,
-                                   &app_state->consola,
-                                   screen_center,
-                                   notify_color,
-                                   1);
+        app_state->notifier.create(&renderer->font_renderer, &app_state->consola, notify_origin, notify_color, 1);
         
         app_state->scene.player.position = v3(0, 0, 0);
         

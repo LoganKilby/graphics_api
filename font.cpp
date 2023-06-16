@@ -550,11 +550,6 @@ void Msg_Notifier::push_message(char *msg) {
     
     font->get_vertices(msg, str_length, msg_pos, scale, color, vertices);
     
-    fprintf(stderr, "clicked\n");
-    if(msg_count > 2) {
-        fprintf(stderr, "");
-    }
-    
     if(msg_count > 0) {
         for(int msg_index = 0; msg_index < msg_count; ++msg_index) {
             Font_Vertex *v = data[msg_index].vertices;
@@ -564,13 +559,12 @@ void Msg_Notifier::push_message(char *msg) {
         }
         
         // shifting the array down by 1 to set the new msg at index 0
-        memcpy(&data[1], &data[0], sizeof(data[0]) * msg_count);
+        memmove(&data[1], &data[0], sizeof(data[0]) * msg_count);
+        memset(&data[0], 0, sizeof(data[0]));
     }
     
-    data[0] = {};
     data[0].vertices = vertices;
     data[0].vertex_count = vertex_count;
-    
     msg_count++;
 }
 
@@ -579,7 +573,7 @@ void Msg_Notifier::update() {
     Font_Draw_Command command;
     for(int msg_index = 0; msg_index < count; ++msg_index) {
         if(data[msg_index].fade.fade_elapsed >= duration) {
-            assert(msg_index == msg_count - 1);
+            //assert(msg_index == msg_count - 1);
             free(data[msg_index].vertices);
             data[msg_index] = {};
             msg_count--;
