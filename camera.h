@@ -15,6 +15,7 @@ struct Orbit_Camera {
     Basis basis;
     Spherical_Coordinates position;
     v3 target;
+    Basis target_basis;
     f32 look_speed;
     f32 zoom_speed;
     f32 pan_speed;

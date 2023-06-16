@@ -1,8 +1,3 @@
-void visual_notify() {
-    
-}
-
-
 void save_scene_data(Scene *scene) {
     cfile_write(DEBUG_SCENE_NAME, scene, sizeof(Scene));
 }
@@ -25,20 +20,15 @@ void process_game_input_events(Application_State *app_state) {
             case Mouse: {
                 if(event.key == GLFW_MOUSE_BUTTON_LEFT) {
                     if(event.action == GLFW_PRESS) {
-                        char *t = "fading text";
-                        app_state->notifier.push_message("fading text");
-                        
                         //glfwSetInputMode(Platform.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
                     } else {
                         //glfwSetInputMode(Platform.window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
                     }
                 } else if (event.key == GLFW_MOUSE_BUTTON_RIGHT) {
                     if(event.action == GLFW_PRESS) {
-                        app_state->notifier.push_message("other text");
+                        
                     }
                 }
-                
-                
             } break;
             
             case Keyboard: {
@@ -84,10 +74,10 @@ void process_editor_input_events(Application_State *app_state) {
                     } break;
                     
                     case GLFW_KEY_S: {
-                        if((event.action == GLFW_PRESS) && (event.mods == GLFW_KEY_LEFT_CONTROL)) {
+                        if((event.action == GLFW_PRESS) && (event.mods & GLFW_MOD_CONTROL)) {
                             save_scene_data(&app_state->scene);
                             // TODO(lmk): Put a message on the screen
-                            printf("scene saved\n");
+                            app_state->notifier.push_message("Scene saved");
                         }
                     } break;
                     
@@ -238,50 +228,16 @@ void update_and_render(void *platform_memory) {
         app_state->scene.editor.editing = 0;
         app_state->scene.camera.pan_speed = DEFAULT_ORBIT_CAMERA_PAN_SPEED;
         
-        app_state->smile1.load("opengl_utility/textures/awesomeface.png");
-        app_state->smile2.load("opengl_utility/textures/awesomeface_gray.png");
-        app_state->smile1t.load_from_image(&app_state->smile1);
-        app_state->smile2t.load_from_image(&app_state->smile2);
-        
-        app_state->textured_polygon_shader.create();
-        app_state->texture_rect.create(&app_state->textured_polygon_shader);
-        
-        int max_height = max(app_state->smile1.height, app_state->smile2.height);
-        int total_width = app_state->smile1.width + app_state->smile2.width;
-        app_state->test_atlas.width = total_width;
-        app_state->test_atlas.height = max_height;
-        
-        Rect smile1_rect = { 0, 0, app_state->smile1.width, app_state->smile1.height };
-        Rect smile2_rect = { app_state->smile1.width, 0, app_state->smile2.width, app_state->smile2.height };
-        
-        glGenTextures(1, &app_state->test_atlas.id);
-        glBindTexture(GL_TEXTURE_2D, app_state->test_atlas.id);
-        glTexImage2D(GL_TEXTURE_2D,
-                     0,
-                     GL_RGB,
-                     total_width,
-                     max_height,
-                     0,
-                     GL_RGBA,
-                     GL_UNSIGNED_BYTE,
-                     0);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, smile1_rect.x, smile1_rect.y, smile1_rect.width, smile1_rect.height, GL_RGBA, GL_UNSIGNED_BYTE, app_state->smile1.pixels);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, smile2_rect.x, smile2_rect.y, smile2_rect.width, smile2_rect.height, GL_RGBA, GL_UNSIGNED_BYTE, app_state->smile2.pixels);
-        
-        app_state->smile1_rect = smile1_rect;
-        app_state->smile2_rect = smile2_rect;
-        
+        //
+        //
+        //
         //load_scene_data(&app_state->scene);
         
         app_state->initialized = true;
     }
     
     Editor_State *editor = &app_state->scene.editor;
-    Orbit_Camera *active_camera = get_active_camera(app_state);
+    Orbit_Camera *active_camera;
     
     if(editor->editing) {
         process_editor_input_events(app_state);
@@ -299,6 +255,7 @@ void update_and_render(void *platform_memory) {
             if(Platform.input_state.mouse_scroll_delta)
                 zoom_orbit_camera(active_camera, Platform.input_state.mouse_scroll_delta);
         }
+        
     } else {
         process_game_input_events(app_state);
         active_camera = &app_state->scene.camera;
@@ -322,7 +279,7 @@ void update_and_render(void *platform_memory) {
             v3 camera_pos = orbit_camera_eye(active_camera);
             
             // TODO(lmk): This won't work if the player should move about the y axis!!
-            v3 new_player_front = v3(active_camera->basis.front.x, 0, active_camera->basis.front.z);
+            v3 new_player_front = project_onto_plane(active_camera->basis.front, UP);
             basis_from_front(&app_state->scene.player.basis, new_player_front);
         }
     }
@@ -336,6 +293,7 @@ void update_and_render(void *platform_memory) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     
     mat4 view = lookAt_orbit_camera(active_camera);
+    
     app_state->gl_utility_context.projection_3d = renderer->projection_3d;
     app_state->gl_utility_context.view_3d = view;
     learnoepngl_camera(app_state, &renderer->projection_3d, &view);
@@ -355,5 +313,21 @@ void update_and_render(void *platform_memory) {
     ImGui_BeginFrame();
     bool show_demo_window;
     ImGui::ShowDemoWindow(&show_demo_window);
+    
+    ImGui::Begin("Camera front");
+    ImGui::Text("x: %f\n", active_camera->basis.front.x);
+    ImGui::Text("y: %f\n", active_camera->basis.front.y);
+    ImGui::Text("z: %f\n", active_camera->basis.front.z);
+    ImGui::End();
+    
+    ImGui::Begin("Camera front cross world-up");
+    v3 fxu = cross(active_camera->basis.front, UP);
+    ImGui::Text("x: %f\n", fxu.x);
+    ImGui::Text("y: %f\n", fxu.y);
+    ImGui::Text("z: %f\n", fxu.z);
+    ImGui::End();
+    
+    
+    
     ImGui_EndFrame();
 }

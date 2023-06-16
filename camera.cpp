@@ -38,7 +38,11 @@ void pan_orbit_camera(Orbit_Camera *camera, v2 mouse_diff) {
     if(!zero_vector(mouse_diff)) {
         assert(camera->pan_speed > 0);
         camera->target += camera->basis.right * -mouse_diff.x * camera->pan_speed * Platform.delta_time;
-        camera->target += v3(camera->basis.front.x, 0, camera->basis.front.z) * -mouse_diff.y * camera->pan_speed * Platform.delta_time;
+        
+        // TODO(lmk): when the camera is oriented down the y axis, we cannot pan around the xz plane because of the way
+        // we're multiplying the pan vector..
+        v3 pan_vector = project_onto_plane(camera->basis.front, UP);
+        camera->target +=  pan_vector * -mouse_diff.y * camera->pan_speed * Platform.delta_time;
     }
 }
 

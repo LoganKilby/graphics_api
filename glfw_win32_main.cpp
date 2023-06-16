@@ -7,6 +7,7 @@
 #include "win32_platform.h"
 #include "GLFW/glfw3.h"
 #include "defines.h"
+#define IM_ASSERT assert
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"

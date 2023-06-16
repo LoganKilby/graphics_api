@@ -147,4 +147,18 @@ mat4 rotate(Basis *basis) {
     return result;
 }
 
+
+v3 project(v3 a, v3 b) {
+    v3 result = (dot(a, b) / squared(length(b))) * b;
+    
+    return result;
+}
+
+
+v3 project_onto_plane(v3 vector, v3 plane_normal) {
+    v3 result = vector - project(vector, plane_normal);
+    
+    return result;
+}
+
 #endif //VECTOR_MATH_H
