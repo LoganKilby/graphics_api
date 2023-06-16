@@ -178,7 +178,7 @@ struct Font {
     int pixel_size;
     
     void get_vertices(char *str, int str_len, v2i screen_pos, float scale, v3 color, Font_Vertex *vertices);
-    int text_length(char *str, float scale);
+    int text_width(char *str, float scale);
 };
 
 
@@ -276,8 +276,8 @@ void Font::get_vertices(char *str, int str_len, v2i screen_pos, float scale, v3 
         }
         
         if(current_char == '\n') {
-            screen_y -= atlas.max_bitmap_height;
-            current_screen_x = screen_x;
+            screen_pos.y -= atlas.max_bitmap_height;
+            current_screen_x = screen_pos.x;
             continue;
         }
         
@@ -285,7 +285,7 @@ void Font::get_vertices(char *str, int str_len, v2i screen_pos, float scale, v3 
         Font_Texture_Atlas_Location *location = &atlas.location[current_char];
         
         f32 x = current_screen_x + (location->bearing.x * scale);
-        f32 y = screen_y - (location->bitmap.height - location->bearing.y) * scale;
+        f32 y = screen_pos.y - (location->bitmap.height - location->bearing.y) * scale;
         f32 w = location->bitmap.width * scale;
         f32 h = location->bitmap.height * scale;
         
@@ -324,7 +324,7 @@ void Font::get_vertices(char *str, int str_len, v2i screen_pos, float scale, v3 
 }
 
 
-int Font::text_length(char *str, float scale) {
+int Font::text_width(char *str, float scale) {
     float screen_x = 0;
     float max_x = 0;
     char previous_char = -1;
@@ -378,20 +378,16 @@ struct GLS_Font2D {
     }
 };
 
+
 struct Font_Draw_Command {
     Font *font;
     v3 color;
     
     // NOTE(lmk): Expressed as seconds
-    float delay;
-    float duration;
-    float elapsed;
-    float t;
+    f32 t;
     
     int vertex_count;
     Font_Vertex *vertices;
-    
-    b32 active;
 };
 
 
@@ -406,7 +402,6 @@ struct Font_Renderer {
     
     void create();
     void text(Font *font, char *str, int screen_x, int screen_y, f32 scale, v3 color); // renders text immediately
-    void fade(Font *font, char *str, int screen_x, int screen_y, f32 scale, v3 color, f32 delay, f32 duration);
     void push(Font_Draw_Command *command);
     void render(mat4 *proj_2d);
 };
@@ -439,37 +434,20 @@ void Font_Renderer::render(mat4 *projection_2d) {
     glUniformMatrix4fv(shader.u_projection, 1, GL_FALSE, (f32*)projection_2d);
     glActiveTexture(GL_TEXTURE0);
     
-    for(Font_Draw_Command *command = &command_list[0]; 
-        command < &command_list[0] + countof(command_list); 
-        ++command) {
-        
-        if(command->active) {
-            glUniform3fv(shader.u_color, 1, (f32 *)&command->color);
-            glUniform1f(shader.u_t, command->t);
-            glBindTexture(GL_TEXTURE_2D, command->font->atlas.texture.id);
-            glBindVertexArray(buffer.vao);
-            glBindBuffer(GL_ARRAY_BUFFER, buffer.vbo);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(Font_Vertex) * command->vertex_count, (f32 *)command->vertices, GL_DYNAMIC_DRAW);
-            glDrawArrays(GL_TRIANGLES, 0, command->vertex_count);
-            glBindVertexArray(0);
-            glBindBuffer(GL_ARRAY_BUFFER, buffer.vbo);
-            glBindTexture(GL_TEXTURE_2D, 0);
-            
-            // TODO(lmk): This feels out of place. Maybe the animation update should happen in a separate step?
-            if(command->elapsed >= command->duration) {
-                free(command->vertices);
-                memset(command, 0, sizeof(Font_Draw_Command));
-                command_list_count--;
-            } else {
-                if(command->delay > 0) {
-                    command->delay -= Platform.delta_time;
-                } else {
-                    command->elapsed += Platform.delta_time;
-                    command->t = command->elapsed / command->duration;
-                }
-            }
-        }
+    for(Font_Draw_Command *command = &command_list[0]; command < &command_list[0] + command_list_count; ++command) {
+        glUniform3fv(shader.u_color, 1, (f32 *)&command->color);
+        glUniform1f(shader.u_t, command->t);
+        glBindTexture(GL_TEXTURE_2D, command->font->atlas.texture.id);
+        glBindVertexArray(buffer.vao);
+        glBindBuffer(GL_ARRAY_BUFFER, buffer.vbo);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(Font_Vertex) * command->vertex_count, (f32 *)command->vertices, GL_DYNAMIC_DRAW);
+        glDrawArrays(GL_TRIANGLES, 0, command->vertex_count);
+        glBindVertexArray(0);
+        glBindBuffer(GL_ARRAY_BUFFER, buffer.vbo);
+        glBindTexture(GL_TEXTURE_2D, 0);
     }
+    
+    command_list_count = 0;
 }
 
 
@@ -483,32 +461,16 @@ void Font_Renderer::push(Font_Draw_Command *command) {
 
 
 void Font_Renderer::text(Font *font, char *str, int screen_x, int screen_y, float scale, v3 color) {
-    int count = 0;
-    Font_Vertex *vertices = font->get_vertices(str, screen_x, screen_y, scale, color, &count);
+    int str_length = (int)strlen(str);
+    int vertex_count = str_length * 6;
+    Font_Vertex *vertices = (Font_Vertex *)transient_alloc(sizeof(Font_Vertex) * vertex_count);
+    font->get_vertices(str, str_length, v2i(screen_x, screen_y), scale, color, vertices);
     
     Font_Draw_Command command = {};
     command.font = font;
     command.vertices = vertices;
-    command.vertex_count = count;
+    command.vertex_count = vertex_count;
     command.color = color;
-    command.active = 1;
-    
-    push(&command);
-}
-
-
-void Font_Renderer::fade(Font *font, char *str, int screen_x, int screen_y, f32 scale, v3 color, f32 delay, f32 duration) {
-    int count = 0;
-    Font_Vertex *vertices = font->get_vertices(str, screen_x, screen_y, scale, color, &count);
-    
-    Font_Draw_Command command = {};
-    command.font = font;
-    command.vertices = vertices;
-    command.vertex_count = count;
-    command.color = color;
-    command.delay = delay;
-    command.duration = duration;
-    command.active = 1;
     
     push(&command);
 }
@@ -518,7 +480,31 @@ void Font_Renderer::fade(Font *font, char *str, int screen_x, int screen_y, f32 
 // I need something emit draw calls over multiple frames, like an 'animation manager' or something?
 //
 
+struct Font_Fade {
+    f32 delay_elapsed;
+    f32 fade_elapsed;
+};
+
+#define MAX_MSG_NOTIFICATIONS 16
+struct Msg_Data {
+    Font_Fade fade;
+    Font_Vertex *vertices;
+    int vertex_count;
+};
+
 struct Msg_Notifier {
+    int msg_count;
+    Msg_Data data[MAX_MSG_NOTIFICATIONS];
+    
+    f32 delay; // 1
+    f32 duration; // 1
+    
+    v2i origin;
+    f32 scale;
+    v3 color;
+    
+    Font *font;
+    
     // calculates the screen center
     // calculates the text length
     // centers the text
@@ -529,5 +515,89 @@ struct Msg_Notifier {
     // where does that get managed?
     Font_Renderer *renderer;
     
-    
+    void create(Font_Renderer *renderer, Font *font, v2i origin, v3 color, f32 scale);
+    void push_message(char *msg);
+    void update();
 };
+
+
+void Msg_Notifier::create(Font_Renderer *_renderer, Font *_font, v2i _origin, v3 _color, f32 _scale) {
+    renderer = _renderer;
+    font = _font;
+    origin = _origin;
+    color = _color;
+    scale = _scale;
+    delay = 1;
+    duration = 1;
+}
+
+
+void Msg_Notifier::push_message(char *msg) {
+    if(msg_count == MAX_MSG_NOTIFICATIONS) {
+        // NOTE(lmk): we could just overwrite the oldest msg..
+        assert(0); // out of space to store the notifications
+        return;
+    }
+    
+    int str_length = (int)strlen(msg);
+    int vertex_count = str_length * 6;
+    Font_Vertex *vertices = (Font_Vertex *)malloc(sizeof(Font_Vertex) * vertex_count);
+    memset(vertices, 0, sizeof(Font_Vertex) * str_length * 6);
+    
+    int msg_width = font->text_width(msg, scale);
+    int x = origin.x - msg_width/2;
+    v2i msg_pos = v2i(x, origin.y);
+    
+    font->get_vertices(msg, str_length, msg_pos, scale, color, vertices);
+    
+    fprintf(stderr, "clicked\n");
+    if(msg_count > 2) {
+        fprintf(stderr, "");
+    }
+    
+    if(msg_count > 0) {
+        for(int msg_index = 0; msg_index < msg_count; ++msg_index) {
+            Font_Vertex *v = data[msg_index].vertices;
+            for(int vertex_index = 0; vertex_index < data[msg_index].vertex_count; ++vertex_index) {
+                v[vertex_index].pos.y -= font->atlas.max_bitmap_height;
+            }
+        }
+        
+        // shifting the array down by 1 to set the new msg at index 0
+        memcpy(&data[1], &data[0], sizeof(data[0]) * msg_count);
+    }
+    
+    data[0] = {};
+    data[0].vertices = vertices;
+    data[0].vertex_count = vertex_count;
+    
+    msg_count++;
+}
+
+void Msg_Notifier::update() {
+    int count = msg_count;
+    Font_Draw_Command command;
+    for(int msg_index = 0; msg_index < count; ++msg_index) {
+        if(data[msg_index].fade.fade_elapsed >= duration) {
+            assert(msg_index == msg_count - 1);
+            free(data[msg_index].vertices);
+            data[msg_index] = {};
+            msg_count--;
+            continue;
+        } else {
+            if (data[msg_index].fade.delay_elapsed < delay) {
+                data[msg_index].fade.delay_elapsed += Platform.delta_time;
+            } else {
+                data[msg_index].fade.fade_elapsed += Platform.delta_time;
+            }
+            
+            command = {};
+            command.font = font;
+            command.vertices = data[msg_index].vertices;
+            command.vertex_count = data[msg_index].vertex_count;
+            command.color = color;
+            command.t = data[msg_index].fade.fade_elapsed / duration;
+            renderer->push(&command);
+        }
+    }
+}

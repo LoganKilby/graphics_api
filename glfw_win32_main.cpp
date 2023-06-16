@@ -146,7 +146,7 @@ int main() {
     
     Memory_Arena app_memory = {};
     app_memory.size = sizeof(Application_State) + TRANSIENT_ARENA_SIZE;
-    app_memory.base_address = VirtualAlloc(0, sizeof(Application_State), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    app_memory.base_address = VirtualAlloc(0, app_memory.size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     transient_arena = create_arena_local((u8 *)app_memory.base_address + sizeof(Application_State), TRANSIENT_ARENA_SIZE);
     
 #if DEBUG

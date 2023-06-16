@@ -26,24 +26,19 @@ void process_game_input_events(Application_State *app_state) {
                 if(event.key == GLFW_MOUSE_BUTTON_LEFT) {
                     if(event.action == GLFW_PRESS) {
                         char *t = "fading text";
-                        int text_length = app_state->font.text_length(t, 1);
+                        app_state->notifier.push_message("fading text");
                         
-                        
-                        app_state->renderer.font_renderer.fade(&app_state->font,
-                                                               "fading\ntext", 
-                                                               200, 
-                                                               200, 
-                                                               1.0f, 
-                                                               v3(1, 1, 1),
-                                                               1,
-                                                               1);
                         //glfwSetInputMode(Platform.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
                     } else {
                         //glfwSetInputMode(Platform.window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
                     }
-                    
-                    
+                } else if (event.key == GLFW_MOUSE_BUTTON_RIGHT) {
+                    if(event.action == GLFW_PRESS) {
+                        app_state->notifier.push_message("other text");
+                    }
                 }
+                
+                
             } break;
             
             case Keyboard: {
@@ -151,11 +146,9 @@ void learnoepngl_camera(Application_State *app_state, mat4 *projection, mat4 *vi
     glUniform1i(tex0_location, 0);
     glUniform1i(tex1_location, 1);
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, app_state->font.atlas.texture.id);
-    //glBindTexture(GL_TEXTURE_2D, app_state->gl_utility_context.wall.id);
+    glBindTexture(GL_TEXTURE_2D, app_state->gl_utility_context.wall.id);
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, app_state->font.atlas.texture.id);
-    //glBindTexture(GL_TEXTURE_2D, app_state->gl_utility_context.awesome_face.id);
+    glBindTexture(GL_TEXTURE_2D, app_state->gl_utility_context.awesome_face.id);
     
     //
     // Draw Cubes
@@ -191,36 +184,49 @@ void learnoepngl_camera(Application_State *app_state, mat4 *projection, mat4 *vi
 
 
 void update_and_render(void *platform_memory) {
+    reset_arena(&transient_arena);
+    
     Application_State *app_state = (Application_State *)platform_memory;
     
     gl_utility_context_ptr = &app_state->gl_utility_context;
     Renderer *renderer = &app_state->renderer;
     
     if(!app_state->initialized) {
+        //
+        // Renderer
+        //
         gl_utility_init(&app_state->gl_utility_context);
         gl_array_buffer_3f3f(&app_state->test_vao, &app_state->test_vbo);
         GL_Compiled_Shaders sh = {};
-        
         sh.vert = gl_compile_shader("shaders/vertex3f3f.vert", GL_VERTEX_SHADER);
         sh.frag = gl_compile_shader("shaders/vertex3f3f.frag", GL_FRAGMENT_SHADER);
         app_state->test_program = gl_link_program(&sh);
-        
         sh.vert = gl_compile_shader("shaders/v3f_uv2f.vert", GL_VERTEX_SHADER);
         sh.frag = gl_compile_shader("shaders/texture_mix_v3f_uv2f.frag", GL_FRAGMENT_SHADER);
         app_state->texture_mix_program = gl_link_program(&sh);
-        
         gl_array_buffer_3f2f(&app_state->v3f_uv2f);
         app_state->alexstrasza = gl_texture_2d("opengl_utility/textures/alexstrasza.jpg");
-        
         glClearColor(0.1, 0.1, 0.1, 0);
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_MULTISAMPLE);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        app_state->renderer.create();
         
         // Fonts
-        app_state->renderer.font_renderer.create();
-        load_font(&app_state->font, "fonts/consola.ttf", 48);
+        load_font(&app_state->consola, "fonts/consola.ttf", 48);
+        
+        v2 screen_center = {
+            (renderer->viewport.width - renderer->viewport.x) / 2,
+            (renderer->viewport.height - renderer->viewport.y) / 2
+        };
+        
+        v3 notify_color = v3(1, 1, 1);
+        app_state->notifier.create(&renderer->font_renderer,
+                                   &app_state->consola,
+                                   screen_center,
+                                   notify_color,
+                                   1);
         
         app_state->scene.player.position = v3(0, 0, 0);
         
@@ -330,16 +336,13 @@ void update_and_render(void *platform_memory) {
         }
     }
     
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    app_state->notifier.update();
     
     //
     // Render game
     //
     // TODO(lmk): Update projection only on viewport resize
-    GL_Viewport viewport;
-    glGetIntegerv(GL_VIEWPORT, (int *)&viewport);
-    renderer->projection_2d = ortho(0.0f, (float)viewport.width, 0.0f, (float)viewport.height);
-    renderer->projection_3d = perspective(radians(45.0f), (f32)viewport.width / (f32)viewport.height, 0.1f, 100.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     
     mat4 view = lookAt_orbit_camera(active_camera);
     app_state->gl_utility_context.projection_3d = renderer->projection_3d;
@@ -353,8 +356,7 @@ void update_and_render(void *platform_memory) {
     sprintf(str, "FPS: %d", Platform.average_fps);
     
     v3 fps_color = v3(0, 1, 0);
-    renderer->font_renderer.text(&app_state->font, str, 25, 25, 1.0f, fps_color);
-    
+    renderer->font_renderer.text(&app_state->consola, str, 25, 25, 1.0f, fps_color);
     renderer->render();
     
     //
@@ -363,5 +365,4 @@ void update_and_render(void *platform_memory) {
     bool show_demo_window;
     ImGui::ShowDemoWindow(&show_demo_window);
     ImGui_EndFrame();
-    
 }

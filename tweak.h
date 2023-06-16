@@ -13,5 +13,7 @@
 #define MAX_SCENE_OBJECTS 15
 #define DEBUG_SCENE_NAME "persistent_scene.scene"
 #define TRANSIENT_ARENA_SIZE kilobytes(16)
-
+#define NEAR_PLANE 0.1f
+#define FAR_PLANE 100.0f
+#define FOV radians(45.0f)
 #endif //TWEAK_H
