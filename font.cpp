@@ -73,7 +73,7 @@ struct Font_Texture_Atlas {
 
 
 struct Font_Vertex {
-    v2 pos;
+    v2 position;
     v2 uv;
     v3 color;
 };
@@ -294,15 +294,15 @@ void Font::get_vertices(char *str, int str_len, v2i screen_pos, float scale, v3 
         f32 bottom =  (location->bitmap.y / atlas_height);
         f32 top = (location->bitmap.y + location->bitmap.height) / atlas_height;
         
-        vertex[0].pos = {x, y+h};
+        vertex[0].position = {x, y+h};
         vertex[0].uv = { left, bottom};
         vertex[0].color = color;
         
-        vertex[1].pos = {x, y};
+        vertex[1].position = {x, y};
         vertex[1].uv = {left, top};
         vertex[1].color = color;
         
-        vertex[2].pos = {x+w, y};
+        vertex[2].position = {x+w, y};
         vertex[2].uv = {right, top};
         vertex[2].color = color;
         
@@ -310,7 +310,7 @@ void Font::get_vertices(char *str, int str_len, v2i screen_pos, float scale, v3 
         vertex[3] = vertex[0];
         vertex[4] = vertex[2];
         
-        vertex[5].pos = {x+w, y+h};
+        vertex[5].position = {x+w, y+h};
         vertex[5].uv = {right, bottom};
         vertex[5].color = color;
         
@@ -419,7 +419,7 @@ void Font_Renderer::create() {
     glBindVertexArray(buffer.vao);
     glBindBuffer(GL_ARRAY_BUFFER, buffer.vbo);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Font_Vertex), (void *)offsetof(Font_Vertex, pos));
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Font_Vertex), (void *)offsetof(Font_Vertex, position));
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Font_Vertex), (void *)offsetof(Font_Vertex, uv));
     glBindVertexArray(0);
@@ -554,7 +554,7 @@ void Msg_Notifier::push_message(char *msg) {
         for(int msg_index = 0; msg_index < msg_count; ++msg_index) {
             Font_Vertex *v = data[msg_index].vertices;
             for(int vertex_index = 0; vertex_index < data[msg_index].vertex_count; ++vertex_index) {
-                v[vertex_index].pos.y -= font->atlas.max_bitmap_height;
+                v[vertex_index].position.y -= font->atlas.max_bitmap_height;
             }
         }
         

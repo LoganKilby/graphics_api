@@ -203,6 +203,9 @@ void update_and_render(void *platform_memory) {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         app_state->renderer.create();
         
+        Mesh m = {};
+        m.load("geo/fox.obj");
+        
         // Fonts
         load_font(&app_state->consola, "fonts/consola.ttf", 48);
         v2 notify_origin(renderer->viewport.width / 2, renderer->viewport.height - (renderer->viewport.height / 8));
@@ -245,7 +248,7 @@ void update_and_render(void *platform_memory) {
         active_camera = &app_state->scene.editor.camera;
         
         // if a ui window is hovered by the mouse, don't let mouse interact with the camera
-        if(!ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow)) {
+        if(!ImGuiUtil_WantCaptureMouse()) {
             if(is_mouse_button_pressed(GLFW_MOUSE_BUTTON_LEFT)) 
                 rotate_orbit_camera(active_camera, Platform.input_state.mouse_diff);
             
@@ -326,8 +329,5 @@ void update_and_render(void *platform_memory) {
     ImGui::Text("y: %f\n", fxu.y);
     ImGui::Text("z: %f\n", fxu.z);
     ImGui::End();
-    
-    
-    
     ImGui_EndFrame();
 }

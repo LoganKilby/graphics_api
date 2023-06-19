@@ -63,6 +63,9 @@ void Renderer::resize_viewport(int x, int y, int width, int height) {
     viewport.y = y;
     viewport.width = width;
     viewport.height = height;
+    
+    projection_2d = ortho((f32)viewport.x, (f32)viewport.width, (f32)viewport.y, (f32)viewport.height);
+    projection_3d = perspective(fov, (f32)viewport.width / (f32)viewport.height, near_plane, far_plane);
 }
 
 

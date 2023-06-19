@@ -17,6 +17,10 @@
 #include "arena.h"
 #include "input.h"
 #include "tweak.h"
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+#include "sqlite3.h"
 
 // NOTE(lmk): Some library, I think GLM, includes cassert, so we have to undefine it
 #undef assert
@@ -29,10 +33,12 @@ struct Platform_Stuff {
     Input_State input_state;
 } global Platform;
 
+
 bool is_mouse_button_pressed(int);
 bool is_key_pressed(int);
 
 
+#include "mesh.cpp"
 #include "camera.cpp"
 #include "editor.cpp"
 #include "font.cpp"
@@ -110,6 +116,8 @@ void glfw_mouse_button_callback(GLFWwindow *window, int button, int action, int 
 
 int main() {
     Platform = {};
+    
+    
     
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
