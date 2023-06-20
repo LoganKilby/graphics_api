@@ -18,7 +18,7 @@ set stb=%external%\stb
 set assimp=%external%\assimp-5.2.5
 set sqlite=%external%\sqlite
 
-set libs=User32.lib Opengl32.lib Gdi32.lib  glew32.lib glfw3dll.exp glfw3dll.lib imgui*.obj freetype.lib assimp-vc143-mt.lib
+set libs=User32.lib Opengl32.lib Gdi32.lib  glew32.lib glfw3dll.exp glfw3dll.lib imgui*.obj freetype.lib assimp-vc143-mt.lib Comdlg32.lib
 set includes=/I%glew% /I%shader_dir% /I%glfw% /I%glm% /I%imgui% /I%freetype% /I%stb% /I%assimp% /I%sqlite%
 
 set opts=-DDEBUG -D_CRT_SECURE_NO_WARNINGS -FC -GR- -EHa- -nologo -Od -Zo -Oi -fp:fast -fp:except- -Gm- -GR- -EHa- -WX -W4 -wd4201 -wd4100 -wd4189 -wd4505 -wd4127 -FC -Z7 %includes%
@@ -32,7 +32,10 @@ REM popd
 
 pushd build
 pushd glfw
-cl %opts% %code%\glfw_win32_main.cpp -Feapp_glfw /link /LIBPATH:%lib_dir% %libs% 
+REM To update
+REM cl /c %opts% %code%\external\imgui-1.89.5\imgui*.cpp
+cl %opts% %code%\glfw_win32_main.cpp -Feapp_glfw /link /LIBPATH:%lib_dir% %libs%
+
 popd
 popd
 

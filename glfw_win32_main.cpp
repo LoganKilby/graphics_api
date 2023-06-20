@@ -7,7 +7,6 @@
 #include "win32_platform.h"
 #include "GLFW/glfw3.h"
 #include "defines.h"
-#define IM_ASSERT assert
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
@@ -20,11 +19,15 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
-#include "sqlite3.h"
+//#include "sqlite3.h"
 
 // NOTE(lmk): Some library, I think GLM, includes cassert, so we have to undefine it
 #undef assert
+#ifdef DEBUG
 #define assert(expression) if(!(expression)) { *(int *)0 = 0; }
+#else
+#define assert(expression)
+#endif
 
 struct Platform_Stuff {
     GLFWwindow *window;
@@ -38,12 +41,12 @@ bool is_mouse_button_pressed(int);
 bool is_key_pressed(int);
 
 
-#include "mesh.cpp"
+#include "app.h"
+#include "scene.cpp"
 #include "camera.cpp"
-#include "editor.cpp"
 #include "font.cpp"
 #include "imgui_util.cpp"
-#include "app.h"
+#include "editor.cpp"
 #include "app.cpp"
 
 void glfw_mouse_scroll_callback(GLFWwindow *window, double x_offset, double y_offset);
@@ -116,8 +119,6 @@ void glfw_mouse_button_callback(GLFWwindow *window, int button, int action, int 
 
 int main() {
     Platform = {};
-    
-    
     
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);

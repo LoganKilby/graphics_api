@@ -12,10 +12,10 @@ enum Camera_Type {
 
 // NOTE(lmk): Position is relative to target
 struct Orbit_Camera {
+    int attached_entity_id;
     Basis basis;
     Spherical_Coordinates position;
     v3 target;
-    Basis target_basis;
     f32 look_speed;
     f32 zoom_speed;
     f32 pan_speed;

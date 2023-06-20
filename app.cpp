@@ -1,14 +1,78 @@
-void save_scene_data(Scene *scene) {
-    cfile_write(DEBUG_SCENE_NAME, scene, sizeof(Scene));
+bool load_scene_data(Scene *scene_dest) {
+    return false;
 }
 
 
-void load_scene_data(Scene *scene_dest) {
-    size_t bytes_read;
-    Scene *data = (Scene *)cfile_read(DEBUG_SCENE_NAME, &bytes_read);
-    assert(bytes_read == sizeof(Scene));
-    memcpy(scene_dest, data, sizeof(Scene));
-    free(data);
+void save_scene_as(Application_State *state) {
+    OS_Max_Path_String save_path = {};
+    if(os_get_save_file_name(save_path.data, sizeof(save_path.data))) {
+        if(cfile_write(save_path.data, &state->scene, sizeof(Scene))) {
+            state->notifier.push_message("Scene saved");
+        } else {
+            fail("Unable to save scene file");
+        }
+    }
+}
+
+
+void load_scene(Application_State *state) {
+    OS_Max_Path_String open_path = {};
+    if(os_get_open_file_name(open_path.data, sizeof(open_path.data))) {
+        size_t bytes_read;
+        Scene *data = (Scene *)cfile_read(open_path.data, &bytes_read);
+        
+        if(data) {
+            if(bytes_read == sizeof(Scene)) {
+                memcpy(&state->scene, data, sizeof(Scene));
+                memcpy(&state->scene.editor.active_scene_path, open_path.data, sizeof(OS_Max_Path_String));
+                state->scene.editor.loaded_from_disk = true;
+                state->notifier.push_message("Scene Loaded");
+                free(data);
+            } else {
+                fail("Size of Scene file does not match compiled size");
+            }
+        } else {
+            fail("Unable to open Scene file or out of memory");
+        }
+    }
+}
+
+
+// TODO(lmk): Do a scene file format that I can parse
+void draw_editor(Application_State *state) {
+    // show main menu bar
+    if(ImGui::BeginMainMenuBar()) {
+        if(ImGui::BeginMenu("Scene")) {
+            if(ImGui::MenuItem("New")) {
+                state->scene.editor.active_scene_path = {};
+                state->scene.editor.loaded_from_disk = false;
+            }
+            
+            if(ImGui::MenuItem("Save", "ctrl+s")) {
+                if(state->scene.editor.loaded_from_disk) {
+                    if(cfile_write(state->scene.editor.active_scene_path.data, &state->scene, sizeof(Scene))) {
+                        state->notifier.push_message("Scene saved");
+                    } else {
+                        fail("Unable to save scene file"); // potentially saved to invalid path
+                    }
+                } else {
+                    save_scene_as(state);
+                }
+            }
+            
+            if(ImGui::MenuItem("Save As...")) save_scene_as(state);
+            if(ImGui::MenuItem("Load", "ctrl+l")) load_scene(state);
+            ImGui::EndMenu();
+        }
+        
+        
+        if(ImGui::BeginMenu("View")) {
+            ImGui::MenuItem("Objects", "ctrl+o");
+            ImGui::EndMenu();
+        }
+        
+        ImGui::EndMainMenuBar();
+    }
 }
 
 
@@ -75,11 +139,23 @@ void process_editor_input_events(Application_State *app_state) {
                     
                     case GLFW_KEY_S: {
                         if((event.action == GLFW_PRESS) && (event.mods & GLFW_MOD_CONTROL)) {
-                            save_scene_data(&app_state->scene);
-                            // TODO(lmk): Put a message on the screen
-                            app_state->notifier.push_message("Scene saved");
+                            
                         }
                     } break;
+                    
+                    case GLFW_KEY_L: {
+                        if((event.action == GLFW_PRESS) && (event.mods & GLFW_MOD_CONTROL)) {
+                            
+                        }
+                    } break;
+                    
+                    
+                    case GLFW_KEY_O: {
+                        if((event.action == GLFW_PRESS) && (event.mods & GLFW_MOD_CONTROL)) {
+                            
+                        }
+                    } break;
+                    
                     
                     case GLFW_KEY_Z: {
                         
@@ -203,7 +279,7 @@ void update_and_render(void *platform_memory) {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         app_state->renderer.create();
         
-        Mesh m = {};
+        Triangle_Mesh m = {};
         m.load("geo/fox.obj");
         
         // Fonts
@@ -213,14 +289,17 @@ void update_and_render(void *platform_memory) {
         app_state->notifier.create(&renderer->font_renderer, &app_state->consola, notify_origin, notify_color, 1);
         
         app_state->scene.player.position = v3(0, 0, 0);
+        basis_from_front(&app_state->scene.player.basis, v3(0, 0, -1));
         
         //
         // Camera
         //
-        app_state->scene.camera.look_speed = DEFAULT_ORBIT_CAMERA_LOOK_SPEED;
-        app_state->scene.camera.zoom_speed = DEFAULT_ORBIT_CAMERA_ZOOM_SPEED;
-        basis_from_front(&app_state->scene.player.basis, v3(0, 0, -1));
-        attach_orbit_camera(&app_state->scene.camera, app_state->scene.player.position, app_state->scene.player.basis.front, 10);
+        Orbit_Camera game_camera = {};
+        game_camera.look_speed = DEFAULT_ORBIT_CAMERA_LOOK_SPEED;
+        game_camera.zoom_speed = DEFAULT_ORBIT_CAMERA_ZOOM_SPEED;
+        game_camera.position.radius = 10;
+        attach_orbit_camera(&game_camera, app_state->scene.player.position);
+        app_state->scene.camera = game_camera;
         
         //
         // Editor
@@ -280,10 +359,8 @@ void update_and_render(void *platform_memory) {
         // Update player orientation
         if (is_mouse_button_pressed(GLFW_MOUSE_BUTTON_RIGHT)) {
             v3 camera_pos = orbit_camera_eye(active_camera);
-            
-            // TODO(lmk): This won't work if the player should move about the y axis!!
-            v3 new_player_front = project_onto_plane(active_camera->basis.front, UP);
-            basis_from_front(&app_state->scene.player.basis, new_player_front);
+            v3 new_player_front_xz = normalize(cross(UP, active_camera->basis.right));
+            basis_from_front(&app_state->scene.player.basis, new_player_front_xz);
         }
     }
     
@@ -313,21 +390,11 @@ void update_and_render(void *platform_memory) {
     
     //
     // Render editor
-    ImGui_BeginFrame();
-    bool show_demo_window;
-    ImGui::ShowDemoWindow(&show_demo_window);
-    
-    ImGui::Begin("Camera front");
-    ImGui::Text("x: %f\n", active_camera->basis.front.x);
-    ImGui::Text("y: %f\n", active_camera->basis.front.y);
-    ImGui::Text("z: %f\n", active_camera->basis.front.z);
-    ImGui::End();
-    
-    ImGui::Begin("Camera front cross world-up");
-    v3 fxu = cross(active_camera->basis.front, UP);
-    ImGui::Text("x: %f\n", fxu.x);
-    ImGui::Text("y: %f\n", fxu.y);
-    ImGui::Text("z: %f\n", fxu.z);
-    ImGui::End();
-    ImGui_EndFrame();
+    if(editor->editing) {
+        ImGui_BeginFrame();
+        bool show_demo_window;
+        ImGui::ShowDemoWindow(&show_demo_window);
+        draw_editor(app_state);
+        ImGui_EndFrame();
+    }
 }

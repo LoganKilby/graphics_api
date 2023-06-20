@@ -171,4 +171,41 @@ internal bool win32_load_app_dll(char *dll_name, HINSTANCE *dll_handle_out, Upda
 #endif
 
 
+struct OS_Max_Path_String {
+    char data[MAX_PATH];
+};
+
+
+bool os_get_open_file_name(char *buffer, size_t buffer_size) {
+    char current_dir[MAX_PATH] = {};
+    GetCurrentDirectory(sizeof(current_dir), current_dir);
+    
+    OPENFILENAME ofn = {};
+    ofn.lStructSize = sizeof(OPENFILENAME);
+    ofn.lpstrFilter = "*.scene";
+    ofn.lpstrFile = buffer;
+    ofn.nMaxFile  = (int)buffer_size;
+    ofn.lpstrInitialDir = current_dir;
+    ofn.Flags = OFN_FILEMUSTEXIST;
+    
+    return GetOpenFileName(&ofn);
+}
+
+
+bool os_get_save_file_name(char *buffer, size_t buffer_size) {
+    char current_dir[MAX_PATH] = {};
+    GetCurrentDirectory(sizeof(current_dir), current_dir);
+    
+    OPENFILENAME ofn = {};
+    ofn.lStructSize = sizeof(OPENFILENAME);
+    ofn.lpstrFilter = "*.scene";
+    ofn.lpstrFile = buffer;
+    ofn.nMaxFile  = (int)buffer_size;
+    ofn.lpstrInitialDir = current_dir;
+    
+    return GetSaveFileName(&ofn);
+}
+
+
+
 #endif //WIN32_PLATFORM_H

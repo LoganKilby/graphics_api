@@ -83,19 +83,10 @@ mat4 lookAt_orbit_camera(Orbit_Camera *camera) {
 }
 
 
-// NOTE(lmk): another way to get the spherical coordinates relative to a target
-void attach_orbit_camera(Orbit_Camera *camera, v3 target_pos, v3 target_front, f32 dist_from_target) {
-    v3 camera_pos = target_pos + (UP * dist_from_target);
-    
-    v3 camera_front = normalize(target_pos - camera_pos);
-    basis_from_front(&camera->basis, camera_front);
-    
-    Spherical_Coordinates orbit_pos;
-    cartesian_to_spherical(camera_pos, &orbit_pos.radius, &orbit_pos.azimuth, &orbit_pos.polar);
-    
-    rotate_orbit_camera_polar(camera, orbit_pos.polar);
-    rotate_orbit_camera_azimuth(camera, orbit_pos.azimuth);
-    camera->position.radius = orbit_pos.radius;
+// TODO(lmk): Will probably want to look up an entity by id and attach to it's position instead
+void attach_orbit_camera(Orbit_Camera *camera, v3 target_pos) {
+    assert(camera->position.radius > 0); // NOTE(lmk): Camera might be uninitialized
+    camera->target = target_pos;
 }
 
 

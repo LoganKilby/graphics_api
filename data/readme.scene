@@ -1,0 +1,26 @@
+# Format for loading a set of resources and entities into the game/editor.
+# The model loading library will attempt to resolve the material file dependencies from the path field associated with a mesh resource.
+# The following tags are supported:
+	# resource
+	# entity
+	# camera
+
+resource     #resource tag
+0        	#id
+mesh	 	#type ['mesh', 'texture']
+geo/fox.obj  #path - the path extension is validated with the type tag.
+
+entity  #entity tag
+0	   #resource id
+0 0 0   #position
+1 1 1   #scale
+0 0 -1  #basis front
+1 0 0   #basis right
+0 1 0   #basis up
+
+camera #camera tag
+0	  #attached entity id
+0 -1 0 #basis front
+
+
+

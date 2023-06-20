@@ -3,26 +3,15 @@
 #ifndef APP_H
 #define APP_H
 
-
 #define ImGui_BeginFrame() ImGui_ImplOpenGL3_NewFrame(); ImGui_ImplGlfw_NewFrame(); ImGui::NewFrame();
 #define ImGui_EndFrame() ImGui::Render(); ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-
-struct Entity {
-    v3 position;
-    Basis basis;
-};
-
-
-struct Scene {
-    Entity player;
-    
-    int world_object_count;
-    Entity objects[MAX_SCENE_OBJECTS];
-    
-    Editor_State editor;
-    Orbit_Camera camera; // game play camera
-};
+#include "font.h"
+#include "mesh.h"
+#include "camera.h"
+#include "editor.h"
+#include "entity.h"
+#include "scene.h"
 
 
 struct Renderer {
@@ -32,7 +21,7 @@ struct Renderer {
     Font_Renderer font_renderer;
     f32 near_plane;
     f32 far_plane;
-    f32 fov; 
+    f32 fov;
     
     void render();
     void create();

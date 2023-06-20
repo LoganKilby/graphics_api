@@ -44,41 +44,6 @@ stbrp_rect *gather_glyph_rects(FT_Face face, u32 *count, u32 *rect_max_width, u3
 }
 
 
-struct Kern_Left {
-    v2i right[128];
-};
-struct Kern_Right {
-    v2i left[128];
-};
-struct Kerning_Table {
-    Kern_Left left[128];
-};
-
-
-struct Font_Texture_Atlas_Location {
-    Rect bitmap; // texture atlas coordinates
-    v2i bearing;
-    int advance;
-};
-
-
-struct Font_Texture_Atlas {
-    // NOTE(lmk): Using max bitmap dimension for spacing the ' ' character and for new lines
-    int max_bitmap_width;
-    int max_bitmap_height;
-    
-    Font_Texture_Atlas_Location location[128];
-    GL_Texture2D texture;
-};
-
-
-struct Font_Vertex {
-    v2 position;
-    v2 uv;
-    v3 color;
-};
-
-
 void get_lr_kerning_distance(FT_Face face, Kerning_Table *table, int c1) {
     if(FT_HAS_KERNING(face)) {
         FT_Vector delta;
@@ -172,16 +137,6 @@ void minimum_bounding_box_solver(stbrp_rect *rects, int rect_count, int *width_o
 }
 
 
-struct Font {
-    Font_Texture_Atlas atlas;
-    Kerning_Table kerning;
-    int pixel_size;
-    
-    void get_vertices(char *str, int str_len, v2i screen_pos, float scale, v3 color, Font_Vertex *vertices);
-    int text_width(char *str, float scale);
-};
-
-
 void load_font(Font *font, char *font_file_path, int pixel_size) {
     FT_Library library;
     if(FT_Init_FreeType(&library)) {
@@ -257,10 +212,6 @@ void load_font(Font *font, char *font_file_path, int pixel_size) {
 
 // NOTE(lmk): Must provide a buffer large enough to store the vertices. 6 vertices per letter
 void Font::get_vertices(char *str, int str_len, v2i screen_pos, float scale, v3 color, Font_Vertex *vertices) {
-    // TODO(lmk): Think of a way to buffer up vertices every frame that doesn't involve heap allocations like this
-    //Font_Vertex *result = (Font_Vertex *)malloc(sizeof(Font_Vertex) * length * 6);
-    //memset(result, 0, sizeof(Font_Vertex) * length);
-    
     int current_screen_x = screen_pos.x;
     char previous_char = -1;
     char current_char;
@@ -359,54 +310,6 @@ int Font::text_width(char *str, float scale) {
 //
 
 
-struct GLS_Font2D {
-    GLuint program;
-    GLint u_sampler2D;
-    GLint u_projection;
-    GLint u_color;
-    GLint u_t;
-    
-    void create(char *vert_shader = "shaders/font_shader.vert", char *frag_shader = "shaders/font_shader.frag") {
-        GL_Compiled_Shaders s = {};
-        s.vert = gl_compile_shader(vert_shader, GL_VERTEX_SHADER);
-        s.frag = gl_compile_shader(frag_shader, GL_FRAGMENT_SHADER);
-        program = gl_link_program(&s);
-        u_sampler2D = gl_get_uniform_location(program, "u_texture");
-        u_projection = gl_get_uniform_location(program, "u_projection");
-        u_color = gl_get_uniform_location(program, "u_color");
-        u_t = gl_get_uniform_location(program, "u_t");
-    }
-};
-
-
-struct Font_Draw_Command {
-    Font *font;
-    v3 color;
-    
-    // NOTE(lmk): Expressed as seconds
-    f32 t;
-    
-    int vertex_count;
-    Font_Vertex *vertices;
-};
-
-
-struct Font_Renderer {
-    GLenum          usage;
-    GL_Array_Buffer buffer;
-    GLS_Font2D      shader;
-    
-    // TODO(lmk): Think of a good way to do command lists
-    int command_list_count;
-    Font_Draw_Command command_list[128];
-    
-    void create();
-    void text(Font *font, char *str, int screen_x, int screen_y, f32 scale, v3 color); // renders text immediately
-    void push(Font_Draw_Command *command);
-    void render(mat4 *proj_2d);
-};
-
-
 void Font_Renderer::create() {
     shader.create();
     
@@ -476,51 +379,6 @@ void Font_Renderer::text(Font *font, char *str, int screen_x, int screen_y, floa
 }
 
 
-//
-// I need something emit draw calls over multiple frames, like an 'animation manager' or something?
-//
-
-struct Font_Fade {
-    f32 delay_elapsed;
-    f32 fade_elapsed;
-};
-
-#define MAX_MSG_NOTIFICATIONS 16
-struct Msg_Data {
-    Font_Fade fade;
-    Font_Vertex *vertices;
-    int vertex_count;
-};
-
-struct Msg_Notifier {
-    int msg_count;
-    Msg_Data data[MAX_MSG_NOTIFICATIONS];
-    
-    f32 delay; // 1
-    f32 duration; // 1
-    
-    v2i origin;
-    f32 scale;
-    v3 color;
-    
-    Font *font;
-    
-    // calculates the screen center
-    // calculates the text length
-    // centers the text
-    // stacks multiples instances of text, drawn separately
-    
-    // NOTE(lmk): I want to store the vertices that are used instead of freeing every frame...
-    // so that means the Font_Renderer is not in charge of freeing vertices? If that's the case, 
-    // where does that get managed?
-    Font_Renderer *renderer;
-    
-    void create(Font_Renderer *renderer, Font *font, v2i origin, v3 color, f32 scale);
-    void push_message(char *msg);
-    void update();
-};
-
-
 void Msg_Notifier::create(Font_Renderer *_renderer, Font *_font, v2i _origin, v3 _color, f32 _scale) {
     renderer = _renderer;
     font = _font;
@@ -568,12 +426,12 @@ void Msg_Notifier::push_message(char *msg) {
     msg_count++;
 }
 
+
 void Msg_Notifier::update() {
     int count = msg_count;
     Font_Draw_Command command;
     for(int msg_index = 0; msg_index < count; ++msg_index) {
         if(data[msg_index].fade.fade_elapsed >= duration) {
-            //assert(msg_index == msg_count - 1);
             free(data[msg_index].vertices);
             data[msg_index] = {};
             msg_count--;
