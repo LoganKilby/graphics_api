@@ -20,7 +20,4 @@ entity  #entity tag
 
 camera #camera tag
 0	  #attached entity id
-0 -1 0 #basis front
-
-
-
+0 0 0 #target

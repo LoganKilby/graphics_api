@@ -40,7 +40,7 @@ struct Platform_Stuff {
 bool is_mouse_button_pressed(int);
 bool is_key_pressed(int);
 
-
+#include "../string_parse/string_parse.h"
 #include "app.h"
 #include "scene.cpp"
 #include "camera.cpp"

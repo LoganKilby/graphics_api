@@ -299,6 +299,9 @@ void update_and_render(void *platform_memory) {
         game_camera.zoom_speed = DEFAULT_ORBIT_CAMERA_ZOOM_SPEED;
         game_camera.position.radius = 10;
         attach_orbit_camera(&game_camera, app_state->scene.player.position);
+        v3 camera_pos = orbit_camera_eye(&game_camera);
+        v3 front = normalize(game_camera.target - camera_pos);
+        basis_from_front(&game_camera.basis, front);
         app_state->scene.camera = game_camera;
         
         //
