@@ -1,81 +1,3 @@
-bool load_scene_data(Scene *scene_dest) {
-    return false;
-}
-
-
-void save_scene_as(Application_State *state) {
-    OS_Max_Path_String save_path = {};
-    if(os_get_save_file_name(save_path.data, sizeof(save_path.data))) {
-        if(cfile_write(save_path.data, &state->scene, sizeof(Scene))) {
-            state->notifier.push_message("Scene saved");
-        } else {
-            fail("Unable to save scene file");
-        }
-    }
-}
-
-
-void load_scene(Application_State *state) {
-    OS_Max_Path_String open_path = {};
-    if(os_get_open_file_name(open_path.data, sizeof(open_path.data))) {
-        size_t bytes_read;
-        Scene *data = (Scene *)cfile_read(open_path.data, &bytes_read);
-        
-        if(data) {
-            if(bytes_read == sizeof(Scene)) {
-                memcpy(&state->scene, data, sizeof(Scene));
-                memcpy(&state->scene.editor.active_scene_path, open_path.data, sizeof(OS_Max_Path_String));
-                state->scene.editor.loaded_from_disk = true;
-                state->notifier.push_message("Scene Loaded");
-                free(data);
-            } else {
-                fail("Size of Scene file does not match compiled size");
-            }
-        } else {
-            fail("Unable to open Scene file or out of memory");
-        }
-    }
-}
-
-
-// TODO(lmk): Do a scene file format that I can parse
-void draw_editor(Application_State *state) {
-    // show main menu bar
-    if(ImGui::BeginMainMenuBar()) {
-        if(ImGui::BeginMenu("Scene")) {
-            if(ImGui::MenuItem("New")) {
-                state->scene.editor.active_scene_path = {};
-                state->scene.editor.loaded_from_disk = false;
-            }
-            
-            if(ImGui::MenuItem("Save", "ctrl+s")) {
-                if(state->scene.editor.loaded_from_disk) {
-                    if(cfile_write(state->scene.editor.active_scene_path.data, &state->scene, sizeof(Scene))) {
-                        state->notifier.push_message("Scene saved");
-                    } else {
-                        fail("Unable to save scene file"); // potentially saved to invalid path
-                    }
-                } else {
-                    save_scene_as(state);
-                }
-            }
-            
-            if(ImGui::MenuItem("Save As...")) save_scene_as(state);
-            if(ImGui::MenuItem("Load", "ctrl+l")) load_scene(state);
-            ImGui::EndMenu();
-        }
-        
-        
-        if(ImGui::BeginMenu("View")) {
-            ImGui::MenuItem("Objects", "ctrl+o");
-            ImGui::EndMenu();
-        }
-        
-        ImGui::EndMainMenuBar();
-    }
-}
-
-
 // NOTE(lmk): processes events trigger immediately by input
 void process_game_input_events(Application_State *app_state) {
     Input_Event event;
@@ -288,6 +210,10 @@ void update_and_render(void *platform_memory) {
         v3 notify_color = v3(1, 1, 1);
         app_state->notifier.create(&renderer->font_renderer, &app_state->consola, notify_origin, notify_color, 1);
         
+        if(Platform.argc > 1) {
+            
+        }
+        
         app_state->scene.player.position = v3(0, 0, 0);
         basis_from_front(&app_state->scene.player.basis, v3(0, 0, -1));
         
@@ -316,7 +242,7 @@ void update_and_render(void *platform_memory) {
         //
         //
         //
-        //load_scene_data(&app_state->scene);
+        // load_scene_data(&app_state->scene);
         
         app_state->initialized = true;
     }

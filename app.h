@@ -9,10 +9,8 @@
 #include "font.h"
 #include "mesh.h"
 #include "camera.h"
-#include "editor.h"
-#include "entity.h"
 #include "scene.h"
-
+#include "entity.h"
 
 struct Renderer {
     GL_Viewport viewport;
@@ -78,6 +76,8 @@ struct Application_State {
     Font consola;
     Msg_Notifier notifier;
     
+    b32 scene_loaded_from_disk;
+    OS_Max_Path_String scene_path;
     Scene scene;
 };
 

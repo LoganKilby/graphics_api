@@ -3,10 +3,4 @@
 #ifndef ENTITY_H
 #define ENTITY_H
 
-struct Entity {
-    v3 position;
-    Basis basis;
-    int resource_id;
-};
-
 #endif //ENTITY_H

@@ -5,7 +5,6 @@
 
 #define DEFAULT_CAMERA_POS v3(0, 0, 10)
 #define DEFAULT_PLAYER_SPEED 8.0f
-#define MAX_SCENE_OBJECTS 15
 #define DEBUG_SCENE_NAME "persistent_scene.scene"
 #define TRANSIENT_ARENA_SIZE kilobytes(16)
 #define APP_MEMORY_SIZE kilobytes(16)

@@ -34,6 +34,10 @@ struct Platform_Stuff {
     float delta_time;
     int average_fps;
     Input_State input_state;
+    
+    char **argv;
+    int argc;
+    
 } global Platform;
 
 
@@ -46,7 +50,6 @@ bool is_key_pressed(int);
 #include "camera.cpp"
 #include "font.cpp"
 #include "imgui_util.cpp"
-#include "editor.cpp"
 #include "app.cpp"
 
 void glfw_mouse_scroll_callback(GLFWwindow *window, double x_offset, double y_offset);
@@ -117,8 +120,15 @@ void glfw_mouse_button_callback(GLFWwindow *window, int button, int action, int 
 }
 
 
-int main() {
+int main(int argc, char **argv) {
+    
+#if DEBUG
+    assert(SetCurrentDirectory(DEBUG_WORKING_DIR));
+#endif
+    
     Platform = {};
+    Platform.argv = argv;
+    Platform.argc = argc;
     
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -158,10 +168,6 @@ int main() {
     app_memory.size = sizeof(Application_State) + TRANSIENT_ARENA_SIZE;
     app_memory.base_address = VirtualAlloc(0, app_memory.size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     transient_arena = create_arena_local((u8 *)app_memory.base_address + sizeof(Application_State), TRANSIENT_ARENA_SIZE);
-    
-#if DEBUG
-    assert(SetCurrentDirectory(DEBUG_WORKING_DIR));
-#endif
     
     double cursor_x, cursor_y;
     glfwGetCursorPos(Platform.window, &cursor_x, &cursor_y);
