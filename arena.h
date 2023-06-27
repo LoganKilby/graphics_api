@@ -9,9 +9,15 @@ struct Memory_Arena {
     void *base_address;
     u64 size;
     u64 allocated;
+    u64 last_alloc; // # of bytes allocated from previous allocation
 };
 
 global Memory_Arena transient_arena;
+
+
+// TODO(lmk): Not a lot of use cases for this, so maybe don't need to create my own...
+#define dynamic_alloc malloc
+#define dynamic_realloc realloc
 
 
 Memory_Arena create_arena_local(void *memory, u64 size) {
@@ -35,6 +41,7 @@ void *transient_alloc(u64 size) {
     if(size < (transient_arena.size - transient_arena.allocated)) {
         result = (u8 *)transient_arena.base_address + transient_arena.allocated;
         transient_arena.allocated += size;
+        transient_arena.last_alloc = size;
         memset(result, 0, size);
     } else {
         assert(0); // NOTE(lmk): not enough memory
@@ -42,5 +49,12 @@ void *transient_alloc(u64 size) {
     
     return result;
 }
+
+
+void transient_reset_last_alloc() {
+    transient_arena.size -= transient_arena.last_alloc;
+    transient_arena.last_alloc = 0;
+}
+
 
 #endif //ARENA_H

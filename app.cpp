@@ -1,3 +1,9 @@
+Entity *get_player_entity(Scene *scene) {
+    // NOTE(lmk): Defining the player entity as always index 0
+    // This helps when serializing/deserializing because I don't have to treat it any differently from other entity objects
+    return &scene->entities[0];
+}
+
 // NOTE(lmk): processes events trigger immediately by input
 void process_game_input_events(Application_State *app_state) {
     Input_Event event;
@@ -21,9 +27,9 @@ void process_game_input_events(Application_State *app_state) {
                 switch(event.key) {
                     case GLFW_KEY_GRAVE_ACCENT: {
                         if(event.action == GLFW_PRESS) {
-                            app_state->scene.editor.editing ^= 1;
-                            app_state->scene.editor.camera = app_state->scene.camera;
-                            app_state->scene.editor.camera_target = app_state->scene.player.position;
+                            app_state->editor.editing ^= 1;
+                            app_state->editor.camera = app_state->scene.camera;
+                            app_state->editor.camera_target = app_state->scene.entities[0].position;
                         }
                     } break;
                 }
@@ -55,7 +61,7 @@ void process_editor_input_events(Application_State *app_state) {
                 switch(event.key) {
                     case GLFW_KEY_GRAVE_ACCENT: {
                         if(event.action == GLFW_PRESS) {
-                            app_state->scene.editor.editing ^= 1;
+                            app_state->editor.editing ^= 1;
                         }
                     } break;
                     
@@ -113,8 +119,8 @@ void update_player_pos(v3 *player_pos, Basis *player_basis, f32 speed, Orbit_Cam
 
 Orbit_Camera *get_active_camera(Application_State *app_state) {
     Orbit_Camera *camera;
-    if(app_state->scene.editor.editing) 
-        camera = &app_state->scene.editor.camera;
+    if(app_state->editor.editing) 
+        camera = &app_state->editor.camera;
     else
         camera = &app_state->scene.camera;
     
@@ -214,8 +220,14 @@ void update_and_render(void *platform_memory) {
             
         }
         
-        app_state->scene.player.position = v3(0, 0, 0);
-        basis_from_front(&app_state->scene.player.basis, v3(0, 0, -1));
+        // NOTE(lmk): entity 0 is always the player
+        app_state->scene.player = &app_state->scene.entities[0];
+        app_state->scene.player->position = v3(0, 0, 0);
+        app_state->scene.player->scale = v3(1, 1, 1);
+        basis_from_front(&app_state->scene.player->basis, v3(0, 0, -1));
+        app_state->scene.entity_count++;
+        
+        app_state->scene.player->position = v3(0.11144, 1.23445, 1234.1234);
         
         //
         // Camera
@@ -224,7 +236,7 @@ void update_and_render(void *platform_memory) {
         game_camera.look_speed = DEFAULT_ORBIT_CAMERA_LOOK_SPEED;
         game_camera.zoom_speed = DEFAULT_ORBIT_CAMERA_ZOOM_SPEED;
         game_camera.position.radius = 10;
-        attach_orbit_camera(&game_camera, app_state->scene.player.position);
+        attach_orbit_camera(&game_camera, app_state->scene.player->position);
         v3 camera_pos = orbit_camera_eye(&game_camera);
         v3 front = normalize(game_camera.target - camera_pos);
         basis_from_front(&game_camera.basis, front);
@@ -233,27 +245,29 @@ void update_and_render(void *platform_memory) {
         //
         // Editor
         //
-        app_state->scene.editor.x_axis_color = v4(0, 0, 1, 1);
-        app_state->scene.editor.y_axis_color = v4(0, 1, 0, 1);
-        app_state->scene.editor.z_axis_color = v4(1, 0, 0, 1);
-        app_state->scene.editor.editing = 0;
+        app_state->editor.x_axis_color = v4(0, 0, 1, 1);
+        app_state->editor.y_axis_color = v4(0, 1, 0, 1);
+        app_state->editor.z_axis_color = v4(1, 0, 0, 1);
+        app_state->editor.editing = 0;
         app_state->scene.camera.pan_speed = DEFAULT_ORBIT_CAMERA_PAN_SPEED;
         
         //
         //
         //
         // load_scene_data(&app_state->scene);
+        save_scene(&app_state->scene, "scene0.scene");
+        load_scene(&app_state->scene, "scene0.scene");
         
         app_state->initialized = true;
     }
     
-    Editor_State *editor = &app_state->scene.editor;
+    Editor_State *editor = &app_state->editor;
     Orbit_Camera *active_camera;
     
     if(editor->editing) {
         process_editor_input_events(app_state);
         
-        active_camera = &app_state->scene.editor.camera;
+        active_camera = &editor->camera;
         
         // if a ui window is hovered by the mouse, don't let mouse interact with the camera
         if(!ImGuiUtil_WantCaptureMouse()) {
@@ -270,8 +284,8 @@ void update_and_render(void *platform_memory) {
     } else {
         process_game_input_events(app_state);
         active_camera = &app_state->scene.camera;
-        update_player_pos(&app_state->scene.player.position, &app_state->scene.player.basis, DEFAULT_PLAYER_SPEED, active_camera);
-        active_camera->target = app_state->scene.player.position;
+        update_player_pos(&app_state->scene.player->position, &app_state->scene.player->basis, DEFAULT_PLAYER_SPEED, active_camera);
+        active_camera->target = app_state->scene.player->position;
         
         // if a ui window is hovered by the mouse, don't let mouse interact with the camera
         if(!ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow)) {
@@ -289,7 +303,7 @@ void update_and_render(void *platform_memory) {
         if (is_mouse_button_pressed(GLFW_MOUSE_BUTTON_RIGHT)) {
             v3 camera_pos = orbit_camera_eye(active_camera);
             v3 new_player_front_xz = normalize(cross(UP, active_camera->basis.right));
-            basis_from_front(&app_state->scene.player.basis, new_player_front_xz);
+            basis_from_front(&app_state->scene.player->basis, new_player_front_xz);
         }
     }
     
@@ -306,8 +320,8 @@ void update_and_render(void *platform_memory) {
     app_state->gl_utility_context.projection_3d = renderer->projection_3d;
     app_state->gl_utility_context.view_3d = view;
     learnoepngl_camera(app_state, &renderer->projection_3d, &view);
-    gl_cube(app_state->scene.player.position, &app_state->scene.player.basis, v4(1, 1, 1, 1));
-    gl_basis(app_state->scene.player.position, &app_state->scene.player.basis);
+    gl_cube(app_state->scene.player->position, &app_state->scene.player->basis, v4(1, 1, 1, 1));
+    gl_basis(app_state->scene.player->position, &app_state->scene.player->basis);
     
     int frames_per_second = (int)(1000.0f / Platform.delta_time);
     char str[100] = {};

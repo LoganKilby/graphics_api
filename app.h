@@ -11,6 +11,7 @@
 #include "camera.h"
 #include "scene.h"
 #include "entity.h"
+#include "serialize.h"
 
 struct Renderer {
     GL_Viewport viewport;
@@ -57,28 +58,27 @@ void Renderer::resize_viewport(int x, int y, int width, int height) {
 
 
 struct Application_State {
+    // permanent
     b32 initialized;
     b32 edit_mode;
-    
     GL_Utility_Context gl_utility_context;
+    Renderer renderer;
+    Font consola;
+    Msg_Notifier notifier;
+    Orbit_Camera editor_camera;
+    Editor_State editor;
+    b32 scene_loaded_from_disk;
+    OS_Max_Path_String scene_path;
     
+    // per level
+    Scene scene;
     // learnopengl stuff
     u32 test_vao;
     u32 test_vbo;
     u32 test_program;
     u32 texture_mix_program;
-    
-    Renderer renderer;
-    
     GL_Array_Buffer v3f_uv2f;
     Texture2D alexstrasza;
-    
-    Font consola;
-    Msg_Notifier notifier;
-    
-    b32 scene_loaded_from_disk;
-    OS_Max_Path_String scene_path;
-    Scene scene;
 };
 
 

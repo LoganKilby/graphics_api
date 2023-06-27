@@ -26,12 +26,10 @@ struct Editor_State {
 
 #define MAX_SCENE_ENTITIES 128 // totally arbitrary for now
 struct Scene {
-    Entity player;
+    Entity *player;
     
-    int world_object_count;
+    int entity_count;
     Entity entities[MAX_SCENE_ENTITIES];
-    
-    Editor_State editor;
     Orbit_Camera camera; // game play camera
 };
 
