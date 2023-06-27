@@ -10,25 +10,17 @@ void load_scene(Scene *scene, char *path) {
 
 bool save_scene(Scene *scene, char *path) {
     Blob_Context blob;
-    create_blob(&blob);
-    
+    size_t data_size = (sizeof(S_Entity) * scene->entity_count) + sizeof(S_Orbit_Camera);
+    int count = scene->entity_count + 1;
+    create_blob(&blob, count, data_size);
     serialize_entity(&blob, scene->entities, scene->entity_count);
     serialize_orbit_camera(&blob, &scene->camera);
-    
-    S_Entity *se = (S_Entity *)((u8 *)blob.memory + blob.indices[1].value_offset);
-    
     
     if(!cfile_write(path, blob.memory, blob.size)) {
         fail("Unable to save scene file");
         return false;
     }
     
-    size_t s = sizeof(Blob_Header) + (sizeof(Blob_Index) * 3) + sizeof(S_Entity) + sizeof(S_Orbit_Camera) + BLOB_PADDING;
-    
-    Blob_Context blob_copy = {};
-    load_blob(&blob_copy, path);
-    
-    free(blob.memory);
     return true;
 }
 

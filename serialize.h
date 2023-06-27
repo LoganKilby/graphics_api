@@ -13,9 +13,9 @@ enum Serialization_Version {
 
 // TODO(lmk): Multiple scenes or 'levels' could be stored
 enum Serializable_Types {
-    S_Type_Entity = 0,
+    S_Type_Skip = 0,
+    S_Type_Entity,
     S_Type_Orbit_Camera,
-    S_Type_Skip,
     
     S_Type_Count
 };
@@ -25,7 +25,7 @@ struct Blob_Index {
     Serializable_Types type;
     int count;
     uint64_t value_offset; // NOTE(lmk): offset from blob ptr, not header
-    size_t size; // per element
+    size_t element_size;
 };
 
 
@@ -48,43 +48,29 @@ struct Blob_Context {
 };
 
 
-#define BLOB_PADDING sizeof(u8)
-
-void create_blob(Blob_Context *context) {
-    *context = {};
+void create_blob(Blob_Context *context, int index_count, size_t data_size) {
+    memset(context, 0, sizeof(Blob_Context));
     
-    size_t base_size = sizeof(Blob_Header) + sizeof(Blob_Index) + BLOB_PADDING;
-    context->memory = dynamic_alloc(base_size);
+    size_t buffer_size = data_size + sizeof(Blob_Header) + (sizeof(Blob_Index) * index_count);
+    context->memory = transient_alloc(buffer_size);
+    memset(context->memory, 0, buffer_size);
     
-    if(context->memory) {
-        context->size = base_size;
-        memset(context->memory, 0, base_size);
-        context->header = (Blob_Header *)context->memory;
-        context->header->version = SERIALIZATION_VERSION;
-        
-        context->indices = (Blob_Index *)((u8 *)context->memory + sizeof(Blob_Header));
-        context->indices->type = Serializable_Types::S_Type_Skip;
-        context->header->index_count = 1;
-        
-        context->blob = context->indices + sizeof(Blob_Index);
-        context->header->blob_size = BLOB_PADDING;
-    }
-    
-    // TODO(lmk): Realistically I know ahead of time what is getting serialized... I should just allocate how much memory I need
-    // ahead of time. The reason I didn't do this initially was because I anticipated that the data I'm
-    // serializing will change frequently.
+    context->size = buffer_size;
+    context->header = (Blob_Header *)context->memory;
+    context->indices = (Blob_Index *)((u8 *)context->header + sizeof(Blob_Header));
+    context->blob = ((u8 *)context->indices + (sizeof(Blob_Index) * index_count));
 }
 
 
 bool load_blob(Blob_Context *context, char *path) {
-    *context = {};
+    memset(context, 0, sizeof(Blob_Context));
     
     size_t bytes_read;
     context->memory = cfile_read(path, &bytes_read);
     
     if(bytes_read) {
         context->header = (Blob_Header *)context->memory;
-        context->size = context->header->blob_size + sizeof(Blob_Header) + (sizeof(Blob_Index) * context->header->index_count);
+        context->size = bytes_read;
         context->indices = (Blob_Index *)((u8 *)context->header + sizeof(Blob_Header));
         context->blob = (u8 *)context->indices + sizeof(Blob_Index) * context->header->index_count;
         
@@ -95,31 +81,11 @@ bool load_blob(Blob_Context *context, char *path) {
 }
 
 
-// NOTE(lmk): This is okay for now since holding all of the scene data in-memory is not a problem. If I have a really large scene, maybe
-// incrementally writing to an archive or something might be better. Like flush the blob buffer to the archive when it gets large enough
-// or something?
-// TODO(lmk): I'm growing two buffers independently that are actually contiguous in memory. It may make more sense to grow them separately
-// and then concatenate them at the end with a single realloc, avoiding potentially many calls to realloc and memmove
-Blob_Index *grow_blob(Blob_Context *context, size_t size) {
-    if(context->header == 0) {
-        fail("Forgot to initialize blob before serialization");
-        return 0;
-    }
-    
-    size_t realloc_offset = context->size;
-    size_t bytes_allocated = size + sizeof(Blob_Index);
-    size_t new_index_value_offset = context->header->blob_size;
-    
-    context->header->blob_size += size;
-    context->size += bytes_allocated;
-    
-    context->memory = dynamic_realloc(context->memory, context->size);
-    memset((u8 *)context->memory + realloc_offset, 0, bytes_allocated);
-    
-    context->blob = memmove((u8 *)context->blob + sizeof(Blob_Index), context->blob, context->header->blob_size);
-    
+Blob_Index *push_blob_data(Blob_Context *context, void *data, size_t size) {
     Blob_Index *result = &context->indices[context->header->index_count++];
-    result->value_offset = new_index_value_offset;
+    result->value_offset = context->header->blob_size;
+    memcpy((u8 *)context->blob + result->value_offset, (u8 *)data, size);
+    context->header->blob_size += size;
     
     return result;
 }
@@ -146,9 +112,10 @@ struct S_Orbit_Camera {
 
 void serialize_entity(Blob_Context *context, Entity *data, int count) {
     size_t serialized_type_size = sizeof(S_Entity);
+    size_t data_size = serialized_type_size * count;
     
     // NOTE(lmk): using a transient alloc because the incoming data is contiguous, but total size is unknown
-    S_Entity *s_entity_data = (S_Entity *)transient_alloc(serialized_type_size * count);
+    S_Entity *s_entity_data = (S_Entity *)transient_alloc(data_size);
     memset(s_entity_data, 0, serialized_type_size * count);
     
     for(int i = 0; i < count; ++i) {
@@ -158,12 +125,10 @@ void serialize_entity(Blob_Context *context, Entity *data, int count) {
         s_entity_data[i].basis = data[i].basis;
     }
     
-    size_t data_size = serialized_type_size * count;
-    Blob_Index *index = grow_blob(context, data_size);
+    Blob_Index *index = push_blob_data(context, s_entity_data, data_size);
     index->count = count;
     index->type = Serializable_Types::S_Type_Entity;
-    index->size = serialized_type_size;
-    memcpy((u8 *)context->blob + index->value_offset, (u8 *)data, data_size);
+    index->element_size = serialized_type_size;
     
     transient_reset_last_alloc();
 }
@@ -171,7 +136,6 @@ void serialize_entity(Blob_Context *context, Entity *data, int count) {
 
 void serialize_orbit_camera(Blob_Context *context, Orbit_Camera *camera) {
     size_t serialized_type_size = sizeof(S_Orbit_Camera);
-    
     S_Orbit_Camera s_orbit_camera = {};
     
     s_orbit_camera.attached_entity_id = camera->attached_entity_id;
@@ -182,11 +146,10 @@ void serialize_orbit_camera(Blob_Context *context, Orbit_Camera *camera) {
     s_orbit_camera.zoom_speed = camera->zoom_speed;
     s_orbit_camera.pan_speed = camera->pan_speed;
     
-    Blob_Index *bi = grow_blob(context, serialized_type_size);
+    Blob_Index *bi = push_blob_data(context, &s_orbit_camera, serialized_type_size);
     bi->count = 1;
     bi->type = Serializable_Types::S_Type_Orbit_Camera;
-    bi->size = serialized_type_size;
-    memcpy((u8 *)context->blob + bi->value_offset, (u8 *)&s_orbit_camera, serialized_type_size);
+    bi->element_size = serialized_type_size;
 }
 
 
@@ -243,7 +206,7 @@ void deserialize(Blob_Context *context, Scene *scene) {
         
         Deserialize_Ptr _deserialize = deserialize_function_table[version][data_type];
         for(int data_index = 0; data_index < data_count; ++data_index) {
-            void *data = (u8 *)context->blob + bi->value_offset + (bi->size * data_index);
+            void *data = (u8 *)context->blob + bi->value_offset + (bi->element_size * data_index);
             _deserialize(data, scene);
         }
     }

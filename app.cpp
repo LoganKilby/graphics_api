@@ -227,8 +227,6 @@ void update_and_render(void *platform_memory) {
         basis_from_front(&app_state->scene.player->basis, v3(0, 0, -1));
         app_state->scene.entity_count++;
         
-        app_state->scene.player->position = v3(0.11144, 1.23445, 1234.1234);
-        
         //
         // Camera
         //
