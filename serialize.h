@@ -3,13 +3,7 @@
 #ifndef SERIALIZE_H
 #define SERIALIZE_H
 
-
 #define SERIALIZATION_VERSION 0
-
-enum Serialization_Version {
-    
-};
-
 
 // TODO(lmk): Multiple scenes or 'levels' could be stored
 enum Serializable_Types {
@@ -20,11 +14,37 @@ enum Serializable_Types {
 };
 
 
+struct S_Entity {
+    int resource_id;
+    v3 position;
+    v3 scale;
+    Basis basis;
+};
+
+
+struct S_Orbit_Camera {
+    int attached_entity_id;
+    Basis basis;
+    Spherical_Coordinates position;
+    v3 target;
+    f32 look_speed;
+    f32 zoom_speed;
+    f32 pan_speed;
+};
+
+
 struct Blob_Index {
     Serializable_Types type;
     int count;
     uint64_t value_offset; // NOTE(lmk): offset from blob ptr, not header
     size_t element_size;
+};
+
+
+struct Blob_Chunk {
+    void *data;
+    size_t size;
+    Blob_Index *index;
 };
 
 
@@ -51,7 +71,7 @@ void create_blob(Blob_Context *context, int index_count, size_t data_size) {
     memset(context, 0, sizeof(Blob_Context));
     
     size_t buffer_size = data_size + sizeof(Blob_Header) + (sizeof(Blob_Index) * index_count);
-    context->memory = transient_alloc(buffer_size);
+    context->memory = BLOBALLOC(buffer_size);
     memset(context->memory, 0, buffer_size);
     
     context->size = buffer_size;
@@ -80,75 +100,55 @@ bool load_blob(Blob_Context *context, char *path) {
 }
 
 
-Blob_Index *push_blob_data(Blob_Context *context, void *data, size_t size) {
-    Blob_Index *result = &context->indices[context->header->index_count++];
-    result->value_offset = context->header->blob_size;
-    memcpy((u8 *)context->blob + result->value_offset, (u8 *)data, size);
+// NOTE(lmk): This does not set up the indices
+Blob_Chunk register_blob_chunk(Blob_Context *context, size_t size) {
+    Blob_Chunk result = {};
+    result.index = &context->indices[context->header->index_count++];
+    result.index->value_offset = context->header->blob_size;
+    result.data = (u8 *)context->blob + result.index->value_offset;
+    result.size = size;
+    
     context->header->blob_size += size;
     
     return result;
 }
 
 
-struct S_Entity {
-    int resource_id;
-    v3 position;
-    v3 scale;
-    Basis basis;
-};
-
-
-struct S_Orbit_Camera {
-    int attached_entity_id;
-    Basis basis;
-    Spherical_Coordinates position;
-    v3 target;
-    f32 look_speed;
-    f32 zoom_speed;
-    f32 pan_speed;
-};
-
-
 void serialize_entity(Blob_Context *context, Entity *data, int count) {
     size_t serialized_type_size = sizeof(S_Entity);
     size_t data_size = serialized_type_size * count;
     
-    // NOTE(lmk): using a transient alloc because the incoming data is contiguous, but total size is unknown
-    S_Entity *s_entity_data = (S_Entity *)transient_alloc(data_size);
-    memset(s_entity_data, 0, serialized_type_size * count);
+    Blob_Chunk chunk = register_blob_chunk(context, data_size);
+    chunk.index->type = Serializable_Types::S_Type_Entity;
+    chunk.index->count = count;
+    chunk.index->element_size = serialized_type_size;
     
-    for(int i = 0; i < count; ++i) {
-        s_entity_data[i].resource_id = data[i].resource_id;
-        s_entity_data[i].position = data[i].position;
-        s_entity_data[i].scale = data[i].scale;
-        s_entity_data[i].basis = data[i].basis;
+    S_Entity *s_entity_buffer = (S_Entity *)chunk.data;
+    for(int data_index = 0; data_index < count; ++data_index) {
+        s_entity_buffer[data_index].resource_id = data[data_index].resource_id;
+        s_entity_buffer[data_index].position = data[data_index].position;
+        s_entity_buffer[data_index].scale = data[data_index].scale;
+        s_entity_buffer[data_index].basis = data[data_index].basis;
     }
-    
-    Blob_Index *index = push_blob_data(context, s_entity_data, data_size);
-    index->count = count;
-    index->type = Serializable_Types::S_Type_Entity;
-    index->element_size = serialized_type_size;
-    
-    transient_reset_last_alloc();
 }
 
 
 void serialize_orbit_camera(Blob_Context *context, Orbit_Camera *camera) {
     size_t serialized_type_size = sizeof(S_Orbit_Camera);
-    S_Orbit_Camera s_orbit_camera = {};
     
-    s_orbit_camera.attached_entity_id = camera->attached_entity_id;
-    s_orbit_camera.basis = camera->basis;
-    s_orbit_camera.position = camera->position;
-    s_orbit_camera.target = camera->target;
-    s_orbit_camera.look_speed = camera->look_speed;
-    s_orbit_camera.zoom_speed = camera->zoom_speed;
-    s_orbit_camera.pan_speed = camera->pan_speed;
+    Blob_Chunk chunk = register_blob_chunk(context, serialized_type_size);
+    chunk.index->count = 1;
+    chunk.index->type = Serializable_Types::S_Type_Orbit_Camera;
+    chunk.index->element_size = serialized_type_size;
     
-    Blob_Index *bi = push_blob_data(context, &s_orbit_camera, serialized_type_size);
-    bi->count = 1;
-    bi->type = Serializable_Types::S_Type_Orbit_Camera;
-    bi->element_size = serialized_type_size;
+    S_Orbit_Camera *s_orbit_camera = (S_Orbit_Camera *)chunk.data;
+    s_orbit_camera->attached_entity_id = camera->attached_entity_id;
+    s_orbit_camera->basis = camera->basis;
+    s_orbit_camera->position = camera->position;
+    s_orbit_camera->target = camera->target;
+    s_orbit_camera->look_speed = camera->look_speed;
+    s_orbit_camera->zoom_speed = camera->zoom_speed;
+    s_orbit_camera->pan_speed = camera->pan_speed;
 }
 
 

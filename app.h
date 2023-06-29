@@ -6,11 +6,22 @@
 #define ImGui_BeginFrame() ImGui_ImplOpenGL3_NewFrame(); ImGui_ImplGlfw_NewFrame(); ImGui::NewFrame();
 #define ImGui_EndFrame() ImGui::Render(); ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
+// Memory arenas
+global Memory_Arena transient_storage;
+global Memory_Arena scene_storage;
+global Memory_Arena permanent_storage;
+
+#define transient_alloc(size) stack_alloc(&transient_storage, size)
+#define transient_reset_last_alloc(size) reset_last_alloc(&transient_storage, size)
+
 #include "font.h"
 #include "mesh.h"
 #include "camera.h"
 #include "scene.h"
 #include "entity.h"
+
+#define BLOBALLOC transient_alloc
+#define BLOBFREE transient_reset_last_alloc
 #include "serialize.h"
 
 struct Renderer {
@@ -23,7 +34,7 @@ struct Renderer {
     f32 fov;
     
     void render();
-    void create();
+    Renderer *create();
     void resize_viewport(int x, int y, int width, int height);
 };
 
@@ -33,7 +44,7 @@ void Renderer::render() {
 }
 
 
-void Renderer::create() {
+Renderer *Renderer::create() {
     near_plane = NEAR_PLANE;
     far_plane = FAR_PLANE;
     fov = FOV;
@@ -43,6 +54,8 @@ void Renderer::create() {
     projection_3d = perspective(fov, (f32)viewport.width / (f32)viewport.height, near_plane, far_plane);
     
     font_renderer.create();
+    
+    return this;
 }
 
 

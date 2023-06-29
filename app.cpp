@@ -1,8 +1,121 @@
 Entity *get_player_entity(Scene *scene) {
     // NOTE(lmk): Defining the player entity as always index 0
-    // This helps when serializing/deserializing because I don't have to treat it any differently from other entity objects
     return &scene->entities[0];
 }
+
+
+void begin_frame(Application_State *state) {
+    transient_storage.allocated = 0;
+    ImGui_BeginFrame();
+    state->notifier.update();
+}
+
+
+void end_frame(Application_State *state) {
+    ImGui_EndFrame();
+    
+    // ...
+}
+
+
+void initialize_application_state(Memory *memory) {
+    Application_State *app_state = (Application_State *)memory->base_address;
+    
+    //
+    // Memory
+    //
+    u8 *transient_arena_base_address = (u8 *)app_state + sizeof(Application_State);
+    transient_storage = create_arena_local(transient_arena_base_address, TRANSIENT_ARENA_SIZE);
+    
+    u8 *scene_arena_base_address = transient_arena_base_address + TRANSIENT_ARENA_SIZE;
+    scene_storage = create_arena_local(scene_arena_base_address, SCENE_ARENA_SIZE);
+    
+    u8 *permanent_arena_base_address = scene_arena_base_address + SCENE_ARENA_SIZE;
+    permanent_storage = create_arena_local(permanent_arena_base_address, PERMANENT_ARENA_SIZE);
+    
+    //
+    // Renderer
+    //
+    gl_utility_init(&app_state->gl_utility_context);
+    
+    // remove
+    gl_array_buffer_3f3f(&app_state->test_vao, &app_state->test_vbo);
+    GL_Compiled_Shaders sh = {};
+    sh.vert = gl_compile_shader("shaders/vertex3f3f.vert", GL_VERTEX_SHADER);
+    sh.frag = gl_compile_shader("shaders/vertex3f3f.frag", GL_FRAGMENT_SHADER);
+    app_state->test_program = gl_link_program(&sh);
+    sh.vert = gl_compile_shader("shaders/v3f_uv2f.vert", GL_VERTEX_SHADER);
+    sh.frag = gl_compile_shader("shaders/texture_mix_v3f_uv2f.frag", GL_FRAGMENT_SHADER);
+    app_state->texture_mix_program = gl_link_program(&sh);
+    gl_array_buffer_3f2f(&app_state->v3f_uv2f);
+    app_state->alexstrasza = gl_texture_2d("opengl_utility/textures/alexstrasza.jpg");
+    // remove
+    
+    // refactor
+    glClearColor(0.1, 0.1, 0.1, 0);
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_MULTISAMPLE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    // refactor 
+    
+    Renderer *renderer = app_state->renderer.create();
+    
+    // remove
+    Triangle_Mesh m = {};
+    m.load("geo/fox.obj");
+    // remove
+    
+    // Fonts
+    load_font(&app_state->consola, "fonts/consola.ttf", 48);
+    
+    v2 notify_origin(renderer->viewport.width / 2, renderer->viewport.height - (renderer->viewport.height / 8));
+    v3 notify_color = v3(1, 1, 1);
+    app_state->notifier.create(&renderer->font_renderer, &app_state->consola, notify_origin, notify_color, 1);
+    
+    if(Platform.argc > 1) {
+        
+    }
+    
+    // NOTE(lmk): entity 0 is always the player
+    app_state->scene.player = &app_state->scene.entities[0];
+    app_state->scene.player->position = v3(0, 0, 0);
+    app_state->scene.player->scale = v3(1, 1, 1);
+    basis_from_front(&app_state->scene.player->basis, v3(0, 0, -1));
+    app_state->scene.entity_count++;
+    
+    //
+    // Camera
+    //
+    Orbit_Camera game_camera = {};
+    game_camera.look_speed = DEFAULT_ORBIT_CAMERA_LOOK_SPEED;
+    game_camera.zoom_speed = DEFAULT_ORBIT_CAMERA_ZOOM_SPEED;
+    game_camera.position.radius = 10;
+    attach_orbit_camera(&game_camera, app_state->scene.player->position);
+    v3 camera_pos = orbit_camera_eye(&game_camera);
+    v3 front = normalize(game_camera.target - camera_pos);
+    basis_from_front(&game_camera.basis, front);
+    app_state->scene.camera = game_camera;
+    
+    //
+    // Editor
+    //
+    app_state->editor.x_axis_color = v4(0, 0, 1, 1);
+    app_state->editor.y_axis_color = v4(0, 1, 0, 1);
+    app_state->editor.z_axis_color = v4(1, 0, 0, 1);
+    app_state->editor.editing = 0;
+    app_state->scene.camera.pan_speed = DEFAULT_ORBIT_CAMERA_PAN_SPEED;
+    
+    //
+    //
+    //
+    // load_scene_data(&app_state->scene);
+    save_scene(&app_state->scene, "scene0.scene");
+    load_scene(&app_state->scene, "scene0.scene");
+    
+    app_state->initialized = true;
+}
+
 
 // NOTE(lmk): processes events trigger immediately by input
 void process_game_input_events(Application_State *app_state) {
@@ -177,91 +290,17 @@ void learnoepngl_camera(Application_State *app_state, mat4 *projection, mat4 *vi
 }
 
 
-void update_and_render(void *platform_memory) {
-    reset_arena(&transient_arena);
-    
-    Application_State *app_state = (Application_State *)platform_memory;
+void update_and_render(Memory *platform_memory) {
+    Application_State *app_state = (Application_State *)platform_memory->base_address;
+    if(!app_state->initialized) initialize_application_state(platform_memory);
     
     gl_utility_context_ptr = &app_state->gl_utility_context;
     Renderer *renderer = &app_state->renderer;
-    
-    if(!app_state->initialized) {
-        //
-        // Renderer
-        //
-        gl_utility_init(&app_state->gl_utility_context);
-        gl_array_buffer_3f3f(&app_state->test_vao, &app_state->test_vbo);
-        GL_Compiled_Shaders sh = {};
-        sh.vert = gl_compile_shader("shaders/vertex3f3f.vert", GL_VERTEX_SHADER);
-        sh.frag = gl_compile_shader("shaders/vertex3f3f.frag", GL_FRAGMENT_SHADER);
-        app_state->test_program = gl_link_program(&sh);
-        sh.vert = gl_compile_shader("shaders/v3f_uv2f.vert", GL_VERTEX_SHADER);
-        sh.frag = gl_compile_shader("shaders/texture_mix_v3f_uv2f.frag", GL_FRAGMENT_SHADER);
-        app_state->texture_mix_program = gl_link_program(&sh);
-        gl_array_buffer_3f2f(&app_state->v3f_uv2f);
-        app_state->alexstrasza = gl_texture_2d("opengl_utility/textures/alexstrasza.jpg");
-        glClearColor(0.1, 0.1, 0.1, 0);
-        glEnable(GL_DEPTH_TEST);
-        glEnable(GL_MULTISAMPLE);
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        app_state->renderer.create();
-        
-        Triangle_Mesh m = {};
-        m.load("geo/fox.obj");
-        
-        // Fonts
-        load_font(&app_state->consola, "fonts/consola.ttf", 48);
-        v2 notify_origin(renderer->viewport.width / 2, renderer->viewport.height - (renderer->viewport.height / 8));
-        v3 notify_color = v3(1, 1, 1);
-        app_state->notifier.create(&renderer->font_renderer, &app_state->consola, notify_origin, notify_color, 1);
-        
-        if(Platform.argc > 1) {
-            
-        }
-        
-        // NOTE(lmk): entity 0 is always the player
-        app_state->scene.player = &app_state->scene.entities[0];
-        app_state->scene.player->position = v3(0, 0, 0);
-        app_state->scene.player->scale = v3(1, 1, 1);
-        basis_from_front(&app_state->scene.player->basis, v3(0, 0, -1));
-        app_state->scene.entity_count++;
-        
-        //
-        // Camera
-        //
-        Orbit_Camera game_camera = {};
-        game_camera.look_speed = DEFAULT_ORBIT_CAMERA_LOOK_SPEED;
-        game_camera.zoom_speed = DEFAULT_ORBIT_CAMERA_ZOOM_SPEED;
-        game_camera.position.radius = 10;
-        attach_orbit_camera(&game_camera, app_state->scene.player->position);
-        v3 camera_pos = orbit_camera_eye(&game_camera);
-        v3 front = normalize(game_camera.target - camera_pos);
-        basis_from_front(&game_camera.basis, front);
-        app_state->scene.camera = game_camera;
-        
-        //
-        // Editor
-        //
-        app_state->editor.x_axis_color = v4(0, 0, 1, 1);
-        app_state->editor.y_axis_color = v4(0, 1, 0, 1);
-        app_state->editor.z_axis_color = v4(1, 0, 0, 1);
-        app_state->editor.editing = 0;
-        app_state->scene.camera.pan_speed = DEFAULT_ORBIT_CAMERA_PAN_SPEED;
-        
-        //
-        //
-        //
-        // load_scene_data(&app_state->scene);
-        save_scene(&app_state->scene, "scene0.scene");
-        load_scene(&app_state->scene, "scene0.scene");
-        
-        app_state->initialized = true;
-    }
-    
     Editor_State *editor = &app_state->editor;
-    Orbit_Camera *active_camera;
     
+    begin_frame(app_state);
+    
+    Orbit_Camera *active_camera;
     if(editor->editing) {
         process_editor_input_events(app_state);
         
@@ -305,8 +344,6 @@ void update_and_render(void *platform_memory) {
         }
     }
     
-    app_state->notifier.update();
-    
     //
     // Render game
     //
@@ -332,10 +369,10 @@ void update_and_render(void *platform_memory) {
     //
     // Render editor
     if(editor->editing) {
-        ImGui_BeginFrame();
         bool show_demo_window;
         ImGui::ShowDemoWindow(&show_demo_window);
         draw_editor(app_state);
-        ImGui_EndFrame();
     }
+    
+    end_frame(app_state);
 }

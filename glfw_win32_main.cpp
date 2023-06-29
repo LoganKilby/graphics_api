@@ -164,10 +164,9 @@ int main(int argc, char **argv) {
         assert(0);
     }
     
-    Memory_Arena app_memory = {};
-    app_memory.size = sizeof(Application_State) + TRANSIENT_ARENA_SIZE;
-    app_memory.base_address = VirtualAlloc(0, app_memory.size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    transient_arena = create_arena_local((u8 *)app_memory.base_address + sizeof(Application_State), TRANSIENT_ARENA_SIZE);
+    Memory platform_memory = {};
+    platform_memory.size = APPLICATION_MEMORY_SIZE;
+    platform_memory.base_address = VirtualAlloc(0, platform_memory.size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     
     double cursor_x, cursor_y;
     glfwGetCursorPos(Platform.window, &cursor_x, &cursor_y);
@@ -195,7 +194,7 @@ int main(int argc, char **argv) {
         Platform.input_state.mouse_diff = v2(cursor_x - Platform.input_state.mouse_pos.x, Platform.input_state.mouse_pos.y - cursor_y);
         Platform.input_state.mouse_pos = v2(cursor_x, cursor_y);
         
-        update_and_render(app_memory.base_address);
+        update_and_render(&platform_memory);
         
         glfwSwapBuffers(Platform.window);
         
