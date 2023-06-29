@@ -47,4 +47,8 @@ void Triangle_Mesh::load(char *path) {
     }
 }
 
+struct Model {
+    
+};
+
 #endif //MESH_H

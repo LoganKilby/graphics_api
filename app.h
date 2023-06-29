@@ -67,7 +67,6 @@ struct Application_State {
     Msg_Notifier notifier;
     Orbit_Camera editor_camera;
     Editor_State editor;
-    b32 scene_loaded_from_disk;
     OS_Max_Path_String scene_path;
     
     // per level

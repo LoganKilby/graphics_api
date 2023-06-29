@@ -13,8 +13,7 @@ enum Serialization_Version {
 
 // TODO(lmk): Multiple scenes or 'levels' could be stored
 enum Serializable_Types {
-    S_Type_Skip = 0,
-    S_Type_Entity,
+    S_Type_Entity = 0,
     S_Type_Orbit_Camera,
     
     S_Type_Count
@@ -69,10 +68,10 @@ bool load_blob(Blob_Context *context, char *path) {
     context->memory = cfile_read(path, &bytes_read);
     
     if(bytes_read) {
-        context->header = (Blob_Header *)context->memory;
         context->size = bytes_read;
-        context->indices = (Blob_Index *)((u8 *)context->header + sizeof(Blob_Header));
-        context->blob = (u8 *)context->indices + sizeof(Blob_Index) * context->header->index_count;
+        context->header = (Blob_Header *)context->memory;
+        context->indices = (Blob_Index *)((u8 *)context->memory + sizeof(Blob_Header));
+        context->blob = (u8 *)context->memory + sizeof(Blob_Header) + sizeof(Blob_Index) * context->header->index_count;
         
         return true;
     }
@@ -178,11 +177,6 @@ void deserialize_orbit_camera_v0(void *data, Scene *scene) {
 }
 
 
-void deserialize_skip(void *data, Scene *scene) {
-    return;
-}
-
-
 typedef void (*Deserialize_Ptr)(void *, Scene *);
 
 // table[version][type]
@@ -191,7 +185,6 @@ Deserialize_Ptr deserialize_function_table[1][Serializable_Types::S_Type_Count] 
     {
         deserialize_entity_v0,
         deserialize_orbit_camera_v0,
-        deserialize_skip,
     },
 };
 
@@ -210,6 +203,13 @@ void deserialize(Blob_Context *context, Scene *scene) {
             _deserialize(data, scene);
         }
     }
+}
+
+
+void *get_blob_data(Blob_Context *context, int index) {
+    void *result = ((u8 *)context->blob + context->indices[index].value_offset);
+    
+    return result;
 }
 
 

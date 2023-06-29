@@ -40,7 +40,7 @@ void pan_orbit_camera(Orbit_Camera *camera, v2 mouse_diff) {
         camera->target += camera->basis.right * -mouse_diff.x * camera->pan_speed * Platform.delta_time;
         
         v3 pan_vector = normalize(cross(camera->basis.right, UP));
-        camera->target +=  pan_vector * mouse_diff.y * camera->pan_speed * Platform.delta_time;
+        camera->target += pan_vector * mouse_diff.y * camera->pan_speed * Platform.delta_time;
     }
 }
 

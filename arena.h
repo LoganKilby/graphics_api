@@ -52,6 +52,8 @@ void *transient_alloc(u64 size) {
 
 
 void transient_reset_last_alloc() {
+    assert(transient_arena.last_alloc > 0); // You must allocate before resetting
+    
     transient_arena.size -= transient_arena.last_alloc;
     transient_arena.last_alloc = 0;
 }

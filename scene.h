@@ -21,6 +21,9 @@ struct Editor_State {
     v3 camera_target;
     b32 editing;
     b32 entity_viewer;
+    
+    b32 scene_loaded_from_disk;
+    OS_Max_Path_String scene_path;
 };
 
 
