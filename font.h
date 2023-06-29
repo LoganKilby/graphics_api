@@ -97,7 +97,6 @@ struct Font_Renderer {
 };
 
 
-
 struct Font_Fade {
     f32 delay_elapsed;
     f32 fade_elapsed;
@@ -110,6 +109,7 @@ struct Msg_Data {
     int vertex_count;
 };
 
+// stacks multiples instances of text, drawn separately with a fade out effect
 struct Msg_Notifier {
     int msg_count;
     Msg_Data data[MAX_MSG_NOTIFICATIONS];
@@ -123,14 +123,6 @@ struct Msg_Notifier {
     
     Font *font;
     
-    // calculates the screen center
-    // calculates the text length
-    // centers the text
-    // stacks multiples instances of text, drawn separately
-    
-    // NOTE(lmk): I want to store the vertices that are used instead of freeing every frame...
-    // so that means the Font_Renderer is not in charge of freeing vertices? If that's the case, 
-    // where does that get managed?
     Font_Renderer *renderer;
     
     void create(Font_Renderer *renderer, Font *font, v2i origin, v3 color, f32 scale);

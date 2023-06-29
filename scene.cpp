@@ -1,4 +1,6 @@
 void load_scene(Scene *scene, char *path) {
+    DEBUG_DEREGISTER_ALL_ALLOCATIONS(scene_storage);
+    
     Blob_Context blob = {};
     if(load_blob(&blob, path)) {
         deserialize(&blob, scene);
@@ -66,8 +68,16 @@ void draw_editor(Application_State *state) {
         }
         
         if(ImGui::BeginMenu("View")) {
-            ImGui::MenuItem("Objects", "ctrl+o");
+            ImGui::MenuItem("Objects (implement)", "ctrl+o");
             ImGui::EndMenu();
+        }
+        
+        if(ImGui::BeginMenu("Memory")) {
+            // pop up window
+            //ImGui::Begin("");
+            
+            std::vector<Debug_Memory_Allocation> d = debug_allocation_map["transient_storage"];
+            
         }
         
         ImGui::EndMainMenuBar();

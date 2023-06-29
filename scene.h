@@ -12,13 +12,6 @@ struct Entity {
 };
 
 
-struct Memory_Diagnostics {
-    f32 transient_arena_peak;
-    f32 permanent_arena_peak;
-    f32 scene_arena_peak;
-};
-
-
 struct Editor_State {
     v4 x_axis_color;
     v4 y_axis_color;
@@ -31,8 +24,6 @@ struct Editor_State {
     
     b32 scene_loaded_from_disk;
     OS_Max_Path_String scene_path;
-    
-    Memory_Diagnostics arena_allocations;
 };
 
 

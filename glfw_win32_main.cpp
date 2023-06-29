@@ -12,7 +12,6 @@
 #include "imgui_impl_opengl3.h"
 #include "opengl_utility/core.h"
 #include "opengl_utility/debug.h"
-#include "../cfile/cfile.h"
 #include "arena.h"
 #include "input.h"
 #include "tweak.h"

@@ -5,16 +5,14 @@ Entity *get_player_entity(Scene *scene) {
 
 
 void begin_frame(Application_State *state) {
-    transient_storage.allocated = 0;
     ImGui_BeginFrame();
     state->notifier.update();
+    reset_transient_arena();
 }
 
 
 void end_frame(Application_State *state) {
     ImGui_EndFrame();
-    
-    // ...
 }
 
 
