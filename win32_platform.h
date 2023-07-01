@@ -7,8 +7,8 @@
 #include "defines.h"
 #include "Windows.h"
 #include "Windowsx.h" // GET_X_PARAM, GET_Y_PARAM
-#include "GL/glew.h"
-#include "GL/wglew.h"
+#include "external/glew-2.1.0/GL/glew.h"
+#include "external/glew-2.1.0/GL/wglew.h"
 
 #define DEBUG_WORKING_DIR "../../data"
 #define os_read_entire_file(file_name, bytes_read) win32_read_entire_file(file_name, bytes_read)

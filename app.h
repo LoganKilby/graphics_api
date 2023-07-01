@@ -12,9 +12,9 @@ global Memory_Arena scene_storage;
 global Memory_Arena permanent_storage;
 
 // NOTE(lmk): Add allocator macros here to track allocations
-#define transient_alloc(size) transient_alloc(&transient_storage, size); DEBUG_REGISTER_ALLOCATION(transient_storage, size)
-#define scene_alloc(size) transient_alloc(&scene_storage, size); DEBUG_REGISTER_ALLOCATION(scene_storage, size)
-#define permanent_alloc(size) transient_alloc(&permanent_storage, size); DEBUG_REGISTER_ALLOCATION(permanent_storage, size)
+#define transient_alloc(size) scratch_alloc(&transient_storage, size);
+#define scene_alloc(size) scratch_alloc(&scene_storage, size); 
+#define permanent_alloc(size) scratch_alloc(&permanent_storage, size);
 
 #define CFILE_ALLOC transient_alloc
 #include "../cfile/cfile.h"

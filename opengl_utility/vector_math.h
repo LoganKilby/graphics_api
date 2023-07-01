@@ -3,7 +3,10 @@
 #ifndef VECTOR_MATH_H
 #define VECTOR_MATH_H
 
-#ifdef GLM_VERSION
+#ifdef USE_GLM
+#include "external/glm-0.9.9.8/glm/glm.hpp"
+#include "external/glm-0.9.9.8/glm/gtc/constants.hpp"
+#include "external/glm-0.9.9.8/glm/gtc/matrix_transform.hpp"
 using namespace glm;
 typedef vec2 v2;
 typedef ivec2 v2i;

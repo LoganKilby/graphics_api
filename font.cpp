@@ -2,11 +2,11 @@
 
 #define STB_RECT_PACK_IMPLEMENTATION
 #define STBRP_ASSERT assert
-#include "stb_rect_pack.h"
+#include "external/stb/stb_rect_pack.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define STBIW_ASSERT assert
-#include "stb_image_write.h"
+#include "external/stb/stb_image_write.h"
 
 // NOTE(lmk): Only loading ascii 0-128. Could trivially support more, I just don't have any use for them.
 stbrp_rect *gather_glyph_rects(FT_Face face, u32 *count, u32 *rect_max_width, u32 *rect_max_height) {

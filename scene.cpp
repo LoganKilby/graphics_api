@@ -1,10 +1,7 @@
 void load_scene(Scene *scene, char *path) {
-    DEBUG_DEREGISTER_ALL_ALLOCATIONS(scene_storage);
-    
     Blob_Context blob = {};
     if(load_blob(&blob, path)) {
         deserialize(&blob, scene);
-        free(blob.memory);
     } else {
         fail("Unable to open Scene file or out of memory");
     }
@@ -73,11 +70,7 @@ void draw_editor(Application_State *state) {
         }
         
         if(ImGui::BeginMenu("Memory")) {
-            // pop up window
-            //ImGui::Begin("");
-            
-            std::vector<Debug_Memory_Allocation> d = debug_allocation_map["transient_storage"];
-            
+            ImGui::EndMenu();
         }
         
         ImGui::EndMainMenuBar();

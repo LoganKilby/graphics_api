@@ -52,7 +52,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #pragma GCC system_header
 #endif
 
-#include <assimp/config.h>
+#include "config.h"
 
 //////////////////////////////////////////////////////////////////////////
 /* Define ASSIMP_BUILD_NO_XX_IMPORTER to disable a specific
@@ -165,21 +165,21 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif // _WIN32
 
 #ifdef _MSC_VER
-    #pragma warning(disable : 4521 4512 4714 4127 4351 4510)
-    #ifdef ASSIMP_BUILD_DLL_EXPORT
-        #pragma warning(disable : 4251)
-    #endif
-    /* Force the compiler to inline a function, if possible */
-    #define AI_FORCE_INLINE inline
+#pragma warning(disable : 4521 4512 4714 4127 4351 4510)
+#ifdef ASSIMP_BUILD_DLL_EXPORT
+#pragma warning(disable : 4251)
+#endif
+/* Force the compiler to inline a function, if possible */
+#define AI_FORCE_INLINE inline
 
-    /* Tells the compiler that a function never returns. Used in code analysis
-    * to skip dead paths (e.g. after an assertion evaluated to false). */
-    #define AI_WONT_RETURN __declspec(noreturn)
+/* Tells the compiler that a function never returns. Used in code analysis
+* to skip dead paths (e.g. after an assertion evaluated to false). */
+#define AI_WONT_RETURN __declspec(noreturn)
 #elif defined(SWIG)
-  /* Do nothing, the relevant defines are all in AssimpSwigPort.i */
+/* Do nothing, the relevant defines are all in AssimpSwigPort.i */
 #else
-    #define AI_WONT_RETURN
-    #define AI_FORCE_INLINE inline
+#define AI_WONT_RETURN
+#define AI_FORCE_INLINE inline
 #endif // (defined _MSC_VER)
 
 #ifdef __GNUC__
@@ -201,15 +201,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
      * entries in the DOXYFILE are: */
 //////////////////////////////////////////////////////////////////////////
 #if 0
-    ENABLE_PREPROCESSING   = YES
-    MACRO_EXPANSION        = YES
-    EXPAND_ONLY_PREDEF     = YES
-    SEARCH_INCLUDES        = YES
-    INCLUDE_PATH           =
-    INCLUDE_FILE_PATTERNS  =
-    PREDEFINED             = ASSIMP_DOXYGEN_BUILD=1
-    EXPAND_AS_DEFINED      = C_STRUCT C_ENUM
-    SKIP_FUNCTION_MACROS   = YES
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = YES
+SEARCH_INCLUDES        = YES
+INCLUDE_PATH           =
+INCLUDE_FILE_PATTERNS  =
+PREDEFINED             = ASSIMP_DOXYGEN_BUILD=1
+EXPAND_AS_DEFINED      = C_STRUCT C_ENUM
+SKIP_FUNCTION_MACROS   = YES
 #endif
 //////////////////////////////////////////////////////////////////////////
 /* Doxygen gets confused if we use c-struct typedefs to avoid

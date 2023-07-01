@@ -7,7 +7,7 @@ Entity *get_player_entity(Scene *scene) {
 void begin_frame(Application_State *state) {
     ImGui_BeginFrame();
     state->notifier.update();
-    reset_transient_arena();
+    transient_storage.allocated = 0;
 }
 
 

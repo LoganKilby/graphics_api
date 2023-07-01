@@ -27,27 +27,6 @@ struct Debug_Memory_Allocation {
 
 #define STRINGIFY(s) #s
 
-#ifdef DEBUG
-#include <vector>
-#include <map>
-global std::map<char *, std::vector<Debug_Memory_Allocation>> debug_allocation_map;
-
-void debug_register_allocation(Memory_Arena *arena, char *arena_name, char *caller, size_t size) {
-    Debug_Memory_Allocation alloc;
-    alloc.caller = caller;
-    alloc.size = size;
-    debug_allocation_map[arena_name].push_back(alloc);
-}
-
-#define DEBUG_REGISTER_ALLOCATION(arena, size) debug_register_allocation(&arena, STRINGIFY(arena), __FUNCTION__, size)
-#define DEBUG_DEREGISTER_ALL_ALLOCATIONS(arena) debug_allocation_map[STRINGIFY(arena)].clear();
-#else
-#define DEBUG_REGISTER_ALLOCATION(arena, size)
-#define DEBUG_DEREGISTER_ALL_ALLOCATIONS(arena)
-#endif
-
-#define reset_transient_arena() transient_storage.allocated = 0; DEBUG_DEREGISTER_ALL_ALLOCATIONS(transient_storage)
-
 Memory_Arena create_arena_local(void *memory, u64 size) {
     Memory_Arena result = {};
     result.memory.base_address = memory;
@@ -59,7 +38,7 @@ Memory_Arena create_arena_local(void *memory, u64 size) {
 
 
 // NOTE(lmk): Allocates if enough memory, no bookkeeping. "Freed" every frame
-void *transient_alloc(Memory_Arena *arena, u64 size) {
+void *scratch_alloc(Memory_Arena *arena, u64 size) {
     assert(arena->memory.base_address);
     u8 *result = 0;
     
@@ -77,7 +56,7 @@ void *transient_alloc(Memory_Arena *arena, u64 size) {
 }
 
 
-void *stack_alloc(Memory_Arena *arena, u64 size) {
+void stack_alloc(Memory_Arena *arena, u64 size) {
     // I haven't totally realized a compelling use case for a stack allocator yet
 }
 

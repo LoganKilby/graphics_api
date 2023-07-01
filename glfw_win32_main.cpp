@@ -1,15 +1,12 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
-#include <glm/glm.hpp>
-#include "glm/gtc/constants.hpp"
-#include "glm/gtc/matrix_transform.hpp"
 #include "opengl_utility/vector_math.h"
 #include "win32_platform.h"
-#include "GLFW/glfw3.h"
+#include "external/glfw-3.3.8/include/GLFW/glfw3.h"
 #include "defines.h"
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
+#include "external/imgui-1.89.5/imgui.h"
+#include "external/imgui-1.89.5/imgui_impl_glfw.h"
+#include "external/imgui-1.89.5/imgui_impl_opengl3.h"
 #include "opengl_utility/core.h"
 #include "opengl_utility/debug.h"
 #include "arena.h"
@@ -43,8 +40,8 @@ struct Platform_Stuff {
 bool is_mouse_button_pressed(int);
 bool is_key_pressed(int);
 
-#include "../string_parse/string_parse.h"
 #include "app.h"
+#include "asset.h"
 #include "scene.cpp"
 #include "camera.cpp"
 #include "font.cpp"
@@ -120,10 +117,11 @@ void glfw_mouse_button_callback(GLFWwindow *window, int button, int action, int 
 
 
 int main(int argc, char **argv) {
-    
 #if DEBUG
     assert(SetCurrentDirectory(DEBUG_WORKING_DIR));
 #endif
+    
+    u32 hash = hash_u32("D:/data/geo/Chest.mtl", sizeof("D:/data/geo/Chest.mtl")) % MAXIMUM_RESOURCE_COUNT;
     
     Platform = {};
     Platform.argv = argv;
