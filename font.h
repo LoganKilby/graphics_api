@@ -56,7 +56,7 @@ struct GLS_Font2D {
     GLint u_color;
     GLint u_t;
     
-    void create(char *vert_shader = "shaders/font_shader.vert", char *frag_shader = "shaders/font_shader.frag") {
+    void create(char *vert_shader = "assets/shaders/font_shader.vert", char *frag_shader = "assets/shaders/font_shader.frag") {
         GL_Compiled_Shaders s = {};
         s.vert = gl_compile_shader(vert_shader, GL_VERTEX_SHADER);
         s.frag = gl_compile_shader(frag_shader, GL_FRAGMENT_SHADER);
@@ -91,7 +91,7 @@ struct Font_Renderer {
     Font_Draw_Command command_list[128];
     
     void create();
-    void text(Font *font, char *str, int screen_x, int screen_y, f32 scale, v3 color); // renders text immediately
+    void text(Font *font, char *str, int screen_x, int screen_y, f32 scale, v3 color, Memory_Arena *arena); // renders text immediately
     void push(Font_Draw_Command *command);
     void render(mat4 *proj_2d);
 };

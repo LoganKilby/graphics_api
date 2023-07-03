@@ -363,10 +363,10 @@ void Font_Renderer::push(Font_Draw_Command *command) {
 }
 
 
-void Font_Renderer::text(Font *font, char *str, int screen_x, int screen_y, float scale, v3 color) {
+void Font_Renderer::text(Font *font, char *str, int screen_x, int screen_y, float scale, v3 color, Memory_Arena *arena) {
     int str_length = (int)strlen(str);
     int vertex_count = str_length * 6;
-    Font_Vertex *vertices = (Font_Vertex *)transient_alloc(sizeof(Font_Vertex) * vertex_count);
+    Font_Vertex *vertices = (Font_Vertex *)scratch_alloc(arena, sizeof(Font_Vertex) * vertex_count);
     font->get_vertices(str, str_length, v2i(screen_x, screen_y), scale, color, vertices);
     
     Font_Draw_Command command = {};
@@ -432,7 +432,7 @@ void Msg_Notifier::update() {
     Font_Draw_Command command;
     for(int msg_index = 0; msg_index < count; ++msg_index) {
         if(data[msg_index].fade.fade_elapsed >= duration) {
-            free(data[msg_index].vertices);
+            free(data[msg_index].vertices); // TODO(lmk): replace free
             data[msg_index] = {};
             msg_count--;
             continue;

@@ -1,21 +1,9 @@
-/* date = June 20th 2023 3:56 pm */
+#include "asset.h"
 
-#ifndef MESH_H
-#define MESH_H
-struct Mesh_Vertex {
-    v3 position;
-    v3 normal;
-    v3 uv;
-};
 
-struct Triangle_Mesh {
-    GL_Element_Buffer buffer;
+GL_Element_Buffer create_mesh_buffer() {
+    GL_Element_Buffer buffer = {};
     
-    void create_buffer();
-    void load(char *path);
-};
-
-void Triangle_Mesh::create_buffer() {
     glGenVertexArrays(1, &buffer.vao);
     glGenBuffers(1, &buffer.vbo);
     glGenBuffers(1, &buffer.ebo);
@@ -34,9 +22,16 @@ void Triangle_Mesh::create_buffer() {
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Mesh_Vertex), (void *)offsetof(Mesh_Vertex, uv));
     
     glBindVertexArray(0);
+    
+    return buffer;
 }
 
-void Triangle_Mesh::load(char *path) {
+
+static void assimp_process_mesh_node(aiNode *node, const aiScene *scene) {
+    
+}
+
+Model *load_model(Game_Assets *assets, Memory_Arena *arena, char *path) {
     Assimp::Importer importer;
     const aiScene *scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs);
     
@@ -45,10 +40,11 @@ void Triangle_Mesh::load(char *path) {
         // TODO(lmk): Load a default thing
         return;
     }
-}
-
-struct Model {
     
-};
-
-#endif //MESH_H
+    // load data
+    
+    aiNode *node = scene->mRootNode;
+    
+    Model *result = 0;
+    return result;
+}

@@ -67,11 +67,11 @@ struct Blob_Context {
 };
 
 
-void create_blob(Blob_Context *context, int index_count, size_t data_size) {
+void create_blob(Blob_Context *context, int index_count, size_t data_size, Memory_Arena *arena) {
     memset(context, 0, sizeof(Blob_Context));
     
     size_t buffer_size = data_size + sizeof(Blob_Header) + (sizeof(Blob_Index) * index_count);
-    context->memory = BLOBALLOC(buffer_size);
+    context->memory = scratch_alloc(arena, buffer_size);
     memset(context->memory, 0, buffer_size);
     
     context->size = buffer_size;

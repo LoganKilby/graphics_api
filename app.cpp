@@ -1,3 +1,18 @@
+void create_renderer(Renderer *renderer) {
+    renderer->near_plane = NEAR_PLANE;
+    renderer->far_plane = FAR_PLANE;
+    renderer->fov = FOV;
+    
+    glGetIntegerv(GL_VIEWPORT, (int *)&renderer->viewport);
+    
+    renderer->projection_2d = ortho((f32)renderer->viewport.x, (f32)renderer->viewport.width, (f32)renderer->viewport.y, (f32)renderer->viewport.height);
+    
+    renderer->projection_3d = perspective(renderer->fov, (f32)renderer->viewport.width / (f32)renderer->viewport.height, renderer->near_plane, renderer->far_plane);
+    
+    renderer->font_renderer.create();
+}
+
+
 Entity *get_player_entity(Scene *scene) {
     // NOTE(lmk): Defining the player entity as always index 0
     return &scene->entities[0];
@@ -7,7 +22,7 @@ Entity *get_player_entity(Scene *scene) {
 void begin_frame(Application_State *state) {
     ImGui_BeginFrame();
     state->notifier.update();
-    transient_storage.allocated = 0;
+    state->transient_arena.allocated = 0;
 }
 
 
@@ -23,13 +38,13 @@ void initialize_application_state(Memory *memory) {
     // Memory
     //
     u8 *transient_arena_base_address = (u8 *)app_state + sizeof(Application_State);
-    transient_storage = create_arena_local(transient_arena_base_address, TRANSIENT_ARENA_SIZE);
+    app_state->transient_arena = create_arena_local(transient_arena_base_address, TRANSIENT_ARENA_SIZE);
     
     u8 *scene_arena_base_address = transient_arena_base_address + TRANSIENT_ARENA_SIZE;
-    scene_storage = create_arena_local(scene_arena_base_address, SCENE_ARENA_SIZE);
+    app_state->scene_arena = create_arena_local(scene_arena_base_address, SCENE_ARENA_SIZE);
     
     u8 *permanent_arena_base_address = scene_arena_base_address + SCENE_ARENA_SIZE;
-    permanent_storage = create_arena_local(permanent_arena_base_address, PERMANENT_ARENA_SIZE);
+    app_state->permanent_arena = create_arena_local(permanent_arena_base_address, PERMANENT_ARENA_SIZE);
     
     //
     // Renderer
@@ -39,11 +54,11 @@ void initialize_application_state(Memory *memory) {
     // remove
     gl_array_buffer_3f3f(&app_state->test_vao, &app_state->test_vbo);
     GL_Compiled_Shaders sh = {};
-    sh.vert = gl_compile_shader("shaders/vertex3f3f.vert", GL_VERTEX_SHADER);
-    sh.frag = gl_compile_shader("shaders/vertex3f3f.frag", GL_FRAGMENT_SHADER);
+    sh.vert = gl_compile_shader("assets/shaders/vertex3f3f.vert", GL_VERTEX_SHADER);
+    sh.frag = gl_compile_shader("assets/shaders/vertex3f3f.frag", GL_FRAGMENT_SHADER);
     app_state->test_program = gl_link_program(&sh);
-    sh.vert = gl_compile_shader("shaders/v3f_uv2f.vert", GL_VERTEX_SHADER);
-    sh.frag = gl_compile_shader("shaders/texture_mix_v3f_uv2f.frag", GL_FRAGMENT_SHADER);
+    sh.vert = gl_compile_shader("assets/shaders/v3f_uv2f.vert", GL_VERTEX_SHADER);
+    sh.frag = gl_compile_shader("assets/shaders/texture_mix_v3f_uv2f.frag", GL_FRAGMENT_SHADER);
     app_state->texture_mix_program = gl_link_program(&sh);
     gl_array_buffer_3f2f(&app_state->v3f_uv2f);
     app_state->alexstrasza = gl_texture_2d("opengl_utility/textures/alexstrasza.jpg");
@@ -57,15 +72,16 @@ void initialize_application_state(Memory *memory) {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     // refactor 
     
-    Renderer *renderer = app_state->renderer.create();
+    Renderer *renderer = &app_state->renderer;
+    create_renderer(renderer);
     
     // remove
-    Triangle_Mesh m = {};
-    m.load("geo/fox.obj");
+    //Triangle_Mesh m = {};
+    //load_mesh("geo/fox.obj");
     // remove
     
     // Fonts
-    load_font(&app_state->consola, "fonts/consola.ttf", 48);
+    load_font(&app_state->consola, "assets/fonts/consola.ttf", 48);
     
     v2 notify_origin(renderer->viewport.width / 2, renderer->viewport.height - (renderer->viewport.height / 8));
     v3 notify_color = v3(1, 1, 1);
@@ -108,7 +124,7 @@ void initialize_application_state(Memory *memory) {
     //
     //
     // load_scene_data(&app_state->scene);
-    save_scene(&app_state->scene, "scene0.scene");
+    save_scene(app_state, "scene0.scene");
     load_scene(&app_state->scene, "scene0.scene");
     
     app_state->initialized = true;
@@ -361,7 +377,7 @@ void update_and_render(Memory *platform_memory) {
     sprintf(str, "FPS: %d", Platform.average_fps);
     
     v3 fps_color = v3(0, 1, 0);
-    renderer->font_renderer.text(&app_state->consola, str, 25, 25, 1.0f, fps_color);
+    renderer->font_renderer.text(&app_state->consola, str, 25, 25, 1.0f, fps_color, &app_state->transient_arena);
     renderer->render();
     
     //
@@ -374,3 +390,4 @@ void update_and_render(Memory *platform_memory) {
     
     end_frame(app_state);
 }
+

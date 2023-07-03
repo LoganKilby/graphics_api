@@ -7,17 +7,17 @@ void load_scene(Scene *scene, char *path) {
     }
 }
 
-bool save_scene(Scene *scene, char *path) {
+bool save_scene(Application_State *state, char *path) {
     Blob_Context blob;
     
     size_t total_blob_size = 0;
-    total_blob_size += (sizeof(S_Entity) * scene->entity_count);
+    total_blob_size += (sizeof(S_Entity) * state->scene.entity_count);
     total_blob_size += sizeof(S_Orbit_Camera);
     
-    int element_count = scene->entity_count + 1;
-    create_blob(&blob, element_count, total_blob_size);
-    serialize_entity(&blob, scene->entities, scene->entity_count);
-    serialize_orbit_camera(&blob, &scene->camera);
+    int element_count = state->scene.entity_count + 1;
+    create_blob(&blob, element_count, total_blob_size, &state->transient_arena);
+    serialize_entity(&blob, state->scene.entities, state->scene.entity_count);
+    serialize_orbit_camera(&blob, &state->scene.camera);
     
     if(!cfile_write(path, blob.memory, blob.size)) {
         fail("Unable to save scene file");
@@ -39,10 +39,10 @@ void draw_editor(Application_State *state) {
             
             if(ImGui::MenuItem("Save", "ctrl+s")) {
                 if(state->editor.scene_loaded_from_disk) {
-                    save_scene(&state->scene, state->editor.scene_path.data);
+                    save_scene(state, state->editor.scene_path.data);
                 } else {
                     if(os_get_save_file_name(state->editor.scene_path.data, sizeof(state->editor.scene_path.data))) {
-                        save_scene(&state->scene, state->editor.scene_path.data);
+                        save_scene(state, state->editor.scene_path.data);
                         state->editor.scene_loaded_from_disk = true;
                     }
                 }
@@ -50,7 +50,7 @@ void draw_editor(Application_State *state) {
             
             if(ImGui::MenuItem("Save As...")) {
                 if(os_get_save_file_name(state->editor.scene_path.data, sizeof(state->editor.scene_path.data))) {
-                    save_scene(&state->scene, state->editor.scene_path.data);
+                    save_scene(state, state->editor.scene_path.data);
                     state->editor.scene_loaded_from_disk = true;
                 }
             }
