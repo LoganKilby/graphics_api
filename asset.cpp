@@ -27,8 +27,21 @@ GL_Element_Buffer create_mesh_buffer() {
 }
 
 
-static void assimp_process_mesh_node(aiNode *node, const aiScene *scene) {
+static void assimp_process_mesh_node(Model *model, aiNode *node, const aiScene *scene) {
+    for(u32 node_index = 0; node_index < node->mNumMeshes; ++node_index) {
+        aiMesh *mesh = scene->mMeshes[node->mMeshes[node_index]];
+    }
+}
+
+
+static u32 assimp_count_meshes(aiNode *node, const aiScene *scene) {
+    u32 mesh_count = node->mNumMeshes;
     
+    for(u32 child_index = 0; child_index < node->mNumChildren) {
+        mesh_count += assimp_count_meshes(node, scene);
+    }
+    
+    return mesh_count;
 }
 
 Model *load_model(Game_Assets *assets, Memory_Arena *arena, char *path) {
@@ -38,13 +51,28 @@ Model *load_model(Game_Assets *assets, Memory_Arena *arena, char *path) {
     if(!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
         assert(0);
         // TODO(lmk): Load a default thing
-        return;
+        return 0;
     }
     
     // load data
     
-    aiNode *node = scene->mRootNode;
-    
     Model *result = 0;
+    
+    aiNode *node = scene->mRootNode;
+    result->mesh_count = assimp_count_meshes(node, scene);
+    
+    
+    for(unsigned int i = 0; i < node->mNumMeshes; i++)
+    {
+        aiMesh *mesh = scene->mMeshes[node->mMeshes[i]]; 
+        meshes.push_back(processMesh(mesh, scene));			
+    }
+    // then do the same for each of its children
+    for(unsigned int i = 0; i < node->mNumChildren; i++)
+    {
+        processNode(node->mChildren[i], scene);
+    }
+    
+    
     return result;
 }
