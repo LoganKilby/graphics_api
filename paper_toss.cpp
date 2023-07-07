@@ -4,3 +4,13 @@
 // paper airplanes maybe
 // fan animation (Ribbon waving in wind)
 // dimly lit scene
+
+// Initial launch
+void toss_paper(v3 *position, v3 *heading, ) {
+    
+}
+
+// update flight, 
+void update_toss() {
+    
+}

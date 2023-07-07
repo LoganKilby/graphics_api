@@ -75,6 +75,13 @@ void draw_editor(Application_State *state) {
             ImGui::EndMenu();
         }
         
+        static bool show_demo_window = false;
+        
+        if(ImGui::BeginMenu("ImGui Demo")) {
+            ImGui::ShowDemoWindow(&show_demo_window);
+            ImGui::EndMenu();
+        }
+        
         ImGui::EndMainMenuBar();
     }
 }

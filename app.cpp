@@ -68,7 +68,7 @@ void initialize_application_state(Memory *memory) {
     
     // TODO(lmk): Import from scene file
     app_state->paper_pos = v3(0, 0, 0);
-    basis_from_front(&app_state->paper_basis, v3(0, 0, -1));
+    basis_from_front(&app_state->paper_basis, v3(0, 0, 1));
     
     app_state->basket_pos = v3(0, 0, 10);
     basis_from_front(&app_state->basket_basis, -app_state->paper_basis.front);
@@ -77,6 +77,8 @@ void initialize_application_state(Memory *memory) {
     // Camera :: TODO(lmk): Import from scene file
     //
     Orbit_Camera game_camera = {};
+    rotate_orbit_camera_polar(&game_camera, 0.25f);
+    rotate_orbit_camera_azimuth(&game_camera, PI * 1.5f);
     game_camera.look_speed = DEFAULT_ORBIT_CAMERA_LOOK_SPEED;
     game_camera.zoom_speed = DEFAULT_ORBIT_CAMERA_ZOOM_SPEED;
     game_camera.position.radius = 10;
@@ -346,28 +348,26 @@ void update_and_render(Memory *platform_memory) {
     app_state->engine.gl_utility_context.projection_3d = renderer->projection_3d;
     engine->gl_utility_context.view_3d = view;
     
-    v3 fps_color = v3(0, 1, 0);
-    
     gl_cube(app_state->paper_pos, &app_state->paper_basis, v4(1, 1, 1, 1));
-    gl_cube(app_state->basket_pos, &app_state->basket_basis, v4(fps_color, 1));
+    gl_cube(app_state->basket_pos, &app_state->basket_basis, v4(1, 1, 0, 1));
+    
     gl_basis(app_state->basket_pos, &app_state->basket_basis);
     gl_basis(app_state->paper_pos, &app_state->paper_basis);
     
     int frames_per_second = (int)(1000.0f / Platform.delta_time);
     char str[100] = {};
     sprintf(str, "FPS: %d", Platform.average_fps);
-    
-    
+    v3 fps_color = v3(0, 1, 0);
     renderer->font_renderer.text(&app_state->consola, str, 25, 25, 1.0f, fps_color, &app_state->transient_arena);
     renderer->render();
     
     //
     // Render editor
     if(editor->editing) {
-        bool show_demo_window;
-        ImGui::ShowDemoWindow(&show_demo_window);
         draw_editor(app_state);
     }
+    
+    printf("%f\n", active_camera->position.azimuth);
     
     end_frame(app_state);
 }
