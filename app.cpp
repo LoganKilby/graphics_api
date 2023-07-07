@@ -13,15 +13,9 @@ void create_renderer(Renderer *renderer) {
 }
 
 
-Entity *get_player_entity(Scene *scene) {
-    // NOTE(lmk): Defining the player entity as always index 0
-    return &scene->entities[0];
-}
-
-
 void begin_frame(Application_State *state) {
     ImGui_BeginFrame();
-    state->notifier.update();
+    state->engine.notifier.update();
     state->transient_arena.allocated = 0;
 }
 
@@ -40,29 +34,10 @@ void initialize_application_state(Memory *memory) {
     u8 *transient_arena_base_address = (u8 *)app_state + sizeof(Application_State);
     app_state->transient_arena = create_arena_local(transient_arena_base_address, TRANSIENT_ARENA_SIZE);
     
-    u8 *scene_arena_base_address = transient_arena_base_address + TRANSIENT_ARENA_SIZE;
-    app_state->scene_arena = create_arena_local(scene_arena_base_address, SCENE_ARENA_SIZE);
-    
-    u8 *permanent_arena_base_address = scene_arena_base_address + SCENE_ARENA_SIZE;
-    app_state->permanent_arena = create_arena_local(permanent_arena_base_address, PERMANENT_ARENA_SIZE);
-    
     //
     // Renderer
     //
-    gl_utility_init(&app_state->gl_utility_context);
-    
-    // remove
-    gl_array_buffer_3f3f(&app_state->test_vao, &app_state->test_vbo);
-    GL_Compiled_Shaders sh = {};
-    sh.vert = gl_compile_shader("assets/shaders/vertex3f3f.vert", GL_VERTEX_SHADER);
-    sh.frag = gl_compile_shader("assets/shaders/vertex3f3f.frag", GL_FRAGMENT_SHADER);
-    app_state->test_program = gl_link_program(&sh);
-    sh.vert = gl_compile_shader("assets/shaders/v3f_uv2f.vert", GL_VERTEX_SHADER);
-    sh.frag = gl_compile_shader("assets/shaders/texture_mix_v3f_uv2f.frag", GL_FRAGMENT_SHADER);
-    app_state->texture_mix_program = gl_link_program(&sh);
-    gl_array_buffer_3f2f(&app_state->v3f_uv2f);
-    app_state->alexstrasza = gl_texture_2d("opengl_utility/textures/alexstrasza.jpg");
-    // remove
+    gl_utility_init(&app_state->engine.gl_utility_context);
     
     // refactor
     glClearColor(0.1, 0.1, 0.1, 0);
@@ -72,7 +47,7 @@ void initialize_application_state(Memory *memory) {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     // refactor 
     
-    Renderer *renderer = &app_state->renderer;
+    Renderer *renderer = &app_state->engine.renderer;
     create_renderer(renderer);
     
     // remove
@@ -85,27 +60,27 @@ void initialize_application_state(Memory *memory) {
     
     v2 notify_origin(renderer->viewport.width / 2, renderer->viewport.height - (renderer->viewport.height / 8));
     v3 notify_color = v3(1, 1, 1);
-    app_state->notifier.create(&renderer->font_renderer, &app_state->consola, notify_origin, notify_color, 1);
+    app_state->engine.notifier.create(&renderer->font_renderer, &app_state->consola, notify_origin, notify_color, 1);
     
     if(Platform.argc > 1) {
         
     }
     
-    // NOTE(lmk): entity 0 is always the player
-    app_state->scene.player = &app_state->scene.entities[0];
-    app_state->scene.player->position = v3(0, 0, 0);
-    app_state->scene.player->scale = v3(1, 1, 1);
-    basis_from_front(&app_state->scene.player->basis, v3(0, 0, -1));
-    app_state->scene.entity_count++;
+    // TODO(lmk): Import from scene file
+    app_state->paper_pos = v3(0, 0, 0);
+    basis_from_front(&app_state->paper_basis, v3(0, 0, -1));
+    
+    app_state->basket_pos = v3(0, 0, 10);
+    basis_from_front(&app_state->basket_basis, -app_state->paper_basis.front);
     
     //
-    // Camera
+    // Camera :: TODO(lmk): Import from scene file
     //
     Orbit_Camera game_camera = {};
     game_camera.look_speed = DEFAULT_ORBIT_CAMERA_LOOK_SPEED;
     game_camera.zoom_speed = DEFAULT_ORBIT_CAMERA_ZOOM_SPEED;
     game_camera.position.radius = 10;
-    attach_orbit_camera(&game_camera, app_state->scene.player->position);
+    attach_orbit_camera(&game_camera, app_state->paper_pos);
     v3 camera_pos = orbit_camera_eye(&game_camera);
     v3 front = normalize(game_camera.target - camera_pos);
     basis_from_front(&game_camera.basis, front);
@@ -114,18 +89,18 @@ void initialize_application_state(Memory *memory) {
     //
     // Editor
     //
-    app_state->editor.x_axis_color = v4(0, 0, 1, 1);
-    app_state->editor.y_axis_color = v4(0, 1, 0, 1);
-    app_state->editor.z_axis_color = v4(1, 0, 0, 1);
-    app_state->editor.editing = 0;
+    Editor_State *editor = &app_state->engine.editor;
+    editor->x_axis_color = v4(0, 0, 1, 1);
+    editor->y_axis_color = v4(0, 1, 0, 1);
+    editor->z_axis_color = v4(1, 0, 0, 1);
     app_state->scene.camera.pan_speed = DEFAULT_ORBIT_CAMERA_PAN_SPEED;
     
     //
     //
     //
     // load_scene_data(&app_state->scene);
-    save_scene(app_state, "scene0.scene");
-    load_scene(&app_state->scene, "scene0.scene");
+    //save_scene(app_state, "scene0.scene");
+    //load_scene(&app_state->scene, "scene0.scene");
     
     app_state->initialized = true;
 }
@@ -154,9 +129,10 @@ void process_game_input_events(Application_State *app_state) {
                 switch(event.key) {
                     case GLFW_KEY_GRAVE_ACCENT: {
                         if(event.action == GLFW_PRESS) {
-                            app_state->editor.editing ^= 1;
-                            app_state->editor.camera = app_state->scene.camera;
-                            app_state->editor.camera_target = app_state->scene.entities[0].position;
+                            Editor_State *editor = &app_state->engine.editor;
+                            editor->editing ^= 1;
+                            editor->camera = app_state->scene.camera;
+                            editor->camera_target = app_state->scene.entities[0].position;
                         }
                     } break;
                 }
@@ -188,7 +164,7 @@ void process_editor_input_events(Application_State *app_state) {
                 switch(event.key) {
                     case GLFW_KEY_GRAVE_ACCENT: {
                         if(event.action == GLFW_PRESS) {
-                            app_state->editor.editing ^= 1;
+                            app_state->engine.editor.editing ^= 1;
                         }
                     } break;
                     
@@ -246,8 +222,9 @@ void update_player_pos(v3 *player_pos, Basis *player_basis, f32 speed, Orbit_Cam
 
 Orbit_Camera *get_active_camera(Application_State *app_state) {
     Orbit_Camera *camera;
-    if(app_state->editor.editing) 
-        camera = &app_state->editor.camera;
+    Editor_State *editor = &app_state->engine.editor;
+    if(editor->editing) 
+        camera = &editor->camera;
     else
         camera = &app_state->scene.camera;
     
@@ -256,6 +233,8 @@ Orbit_Camera *get_active_camera(Application_State *app_state) {
 
 
 void learnoepngl_camera(Application_State *app_state, mat4 *projection, mat4 *view) {
+    GL_Utility_Context *gl_utility_context = &app_state->engine.gl_utility_context;
+    
     glUseProgram(app_state->texture_mix_program);
     int proj_transform_location = gl_get_uniform_location(app_state->texture_mix_program, "u_projection");
     int view_transform_location = gl_get_uniform_location(app_state->texture_mix_program, "u_view");
@@ -267,9 +246,9 @@ void learnoepngl_camera(Application_State *app_state, mat4 *projection, mat4 *vi
     glUniform1i(tex0_location, 0);
     glUniform1i(tex1_location, 1);
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, app_state->gl_utility_context.wall.id);
+    glBindTexture(GL_TEXTURE_2D, gl_utility_context->wall.id);
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, app_state->gl_utility_context.awesome_face.id);
+    glBindTexture(GL_TEXTURE_2D, gl_utility_context->awesome_face.id);
     
     //
     // Draw Cubes
@@ -308,9 +287,9 @@ void update_and_render(Memory *platform_memory) {
     Application_State *app_state = (Application_State *)platform_memory->base_address;
     if(!app_state->initialized) initialize_application_state(platform_memory);
     
-    gl_utility_context_ptr = &app_state->gl_utility_context;
-    Renderer *renderer = &app_state->renderer;
-    Editor_State *editor = &app_state->editor;
+    Renderer *renderer = &app_state->engine.renderer;
+    Editor_State *editor = &app_state->engine.editor;
+    Engine *engine = &app_state->engine;
     
     begin_frame(app_state);
     
@@ -335,26 +314,24 @@ void update_and_render(Memory *platform_memory) {
     } else {
         process_game_input_events(app_state);
         active_camera = &app_state->scene.camera;
-        update_player_pos(&app_state->scene.player->position, &app_state->scene.player->basis, DEFAULT_PLAYER_SPEED, active_camera);
-        active_camera->target = app_state->scene.player->position;
+        //update_player_pos(&app_state->scene.player->position, &app_state->scene.player->basis, DEFAULT_PLAYER_SPEED, active_camera);
+        //active_camera->target = app_state->scene.player->position;
         
-        // if a ui window is hovered by the mouse, don't let mouse interact with the camera
-        if(!ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow)) {
-            if(Platform.input_state.mouse_scroll_delta)
-                zoom_orbit_camera(active_camera, Platform.input_state.mouse_scroll_delta);
-            
-            if(is_mouse_button_pressed(GLFW_MOUSE_BUTTON_LEFT) || is_mouse_button_pressed(GLFW_MOUSE_BUTTON_RIGHT)) {
-                if(!zero_vector(Platform.input_state.mouse_diff)) {
-                    rotate_orbit_camera(active_camera, Platform.input_state.mouse_diff);
-                }
+        if(Platform.input_state.mouse_scroll_delta)
+            zoom_orbit_camera(active_camera, Platform.input_state.mouse_scroll_delta);
+        
+        if(is_mouse_button_pressed(GLFW_MOUSE_BUTTON_LEFT) || is_mouse_button_pressed(GLFW_MOUSE_BUTTON_RIGHT)) {
+            if(!zero_vector(Platform.input_state.mouse_diff)) {
+                rotate_orbit_camera(active_camera, Platform.input_state.mouse_diff);
             }
         }
         
         // Update player orientation
         if (is_mouse_button_pressed(GLFW_MOUSE_BUTTON_RIGHT)) {
-            v3 camera_pos = orbit_camera_eye(active_camera);
-            v3 new_player_front_xz = normalize(cross(UP, active_camera->basis.right));
-            basis_from_front(&app_state->scene.player->basis, new_player_front_xz);
+            // NOTE(lmk): align player front with camera front (xz)
+            //v3 camera_pos = orbit_camera_eye(active_camera);
+            //v3 new_player_front_xz = normalize(cross(UP, active_camera->basis.right));
+            //basis_from_front(&app_state->scene.player->basis, new_player_front_xz);
         }
     }
     
@@ -366,17 +343,21 @@ void update_and_render(Memory *platform_memory) {
     
     mat4 view = lookAt_orbit_camera(active_camera);
     
-    app_state->gl_utility_context.projection_3d = renderer->projection_3d;
-    app_state->gl_utility_context.view_3d = view;
-    learnoepngl_camera(app_state, &renderer->projection_3d, &view);
-    gl_cube(app_state->scene.player->position, &app_state->scene.player->basis, v4(1, 1, 1, 1));
-    gl_basis(app_state->scene.player->position, &app_state->scene.player->basis);
+    app_state->engine.gl_utility_context.projection_3d = renderer->projection_3d;
+    engine->gl_utility_context.view_3d = view;
+    
+    v3 fps_color = v3(0, 1, 0);
+    
+    gl_cube(app_state->paper_pos, &app_state->paper_basis, v4(1, 1, 1, 1));
+    gl_cube(app_state->basket_pos, &app_state->basket_basis, v4(fps_color, 1));
+    gl_basis(app_state->basket_pos, &app_state->basket_basis);
+    gl_basis(app_state->paper_pos, &app_state->paper_basis);
     
     int frames_per_second = (int)(1000.0f / Platform.delta_time);
     char str[100] = {};
     sprintf(str, "FPS: %d", Platform.average_fps);
     
-    v3 fps_color = v3(0, 1, 0);
+    
     renderer->font_renderer.text(&app_state->consola, str, 25, 25, 1.0f, fps_color, &app_state->transient_arena);
     renderer->render();
     

@@ -30,28 +30,30 @@ bool save_scene(Application_State *state, char *path) {
 
 // TODO(lmk): This doesn't belong in this file
 void draw_editor(Application_State *state) {
+    Editor_State *editor = &state->engine.editor;
+    
     // show main menu bar
     if(ImGui::BeginMainMenuBar()) {
         if(ImGui::BeginMenu("Scene")) {
             if(ImGui::MenuItem("New"), "ctrl+n") {
-                state->editor.scene_loaded_from_disk = false;
+                editor->scene_loaded_from_disk = false;
             }
             
             if(ImGui::MenuItem("Save", "ctrl+s")) {
-                if(state->editor.scene_loaded_from_disk) {
-                    save_scene(state, state->editor.scene_path.data);
+                if(editor->scene_loaded_from_disk) {
+                    save_scene(state, editor->scene_path.data);
                 } else {
-                    if(os_get_save_file_name(state->editor.scene_path.data, sizeof(state->editor.scene_path.data))) {
-                        save_scene(state, state->editor.scene_path.data);
-                        state->editor.scene_loaded_from_disk = true;
+                    if(os_get_save_file_name(editor->scene_path.data, sizeof(editor->scene_path.data))) {
+                        save_scene(state, editor->scene_path.data);
+                        editor->scene_loaded_from_disk = true;
                     }
                 }
             }
             
             if(ImGui::MenuItem("Save As...")) {
-                if(os_get_save_file_name(state->editor.scene_path.data, sizeof(state->editor.scene_path.data))) {
-                    save_scene(state, state->editor.scene_path.data);
-                    state->editor.scene_loaded_from_disk = true;
+                if(os_get_save_file_name(editor->scene_path.data, sizeof(editor->scene_path.data))) {
+                    save_scene(state, editor->scene_path.data);
+                    editor->scene_loaded_from_disk = true;
                 }
             }
             

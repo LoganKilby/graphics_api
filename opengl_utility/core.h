@@ -72,6 +72,7 @@ struct GL_Utility_Context {
 };
 
 
+// TODO(lmk): Cleanup
 static GL_Utility_Context *gl_utility_context_ptr;
 
 

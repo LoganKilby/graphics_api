@@ -51,23 +51,30 @@ void Renderer::resize_viewport(int x, int y, int width, int height) {
 }
 
 
+// NOTE(lmk): Building an engine from a selection of components
+struct Engine {
+    b32 edit_mode;
+    
+    Editor_State editor;
+    Msg_Notifier notifier;
+    GL_Utility_Context gl_utility_context;
+    
+    Renderer renderer;
+};
+
+
 struct Application_State {
-    // TODO(lmk): Place the arenas in a struct instead at global scope
+    b32 initialized;
+    
+    Engine engine;
     
     // permanent
-    b32 initialized;
-    b32 edit_mode;
-    GL_Utility_Context gl_utility_context;
-    Renderer renderer;
     Font consola;
-    Msg_Notifier notifier;
     Orbit_Camera editor_camera;
-    Editor_State editor;
     OS_Max_Path_String scene_path;
     
     // per level
     Scene scene;
-    // learnopengl stuff
     u32 test_vao;
     u32 test_vbo;
     u32 test_program;
@@ -75,19 +82,24 @@ struct Application_State {
     GL_Array_Buffer v3f_uv2f;
     Texture2D alexstrasza;
     
+    v3 paper_pos;
+    Basis paper_basis;
+    
+    v3 basket_pos;
+    Basis basket_basis;
+    
+    v3 camera_pos_offset;
+    
+    // NOTE(lmk): I want to draw lots of little paper bundles that the player throws
+    // 
+    
+    // base paper entity
+    //GL_Vertex_Buffer paper;
+    
     Game_Assets assets;
     
     // Memory arenas
     Memory_Arena transient_arena;
-    Memory_Arena scene_arena;
-    Memory_Arena permanent_arena;
-    Memory_Arena asset_arena;
 };
-
-
-
-
-// TODO(lmk): Transient struct...
-
 
 #endif //APP_H

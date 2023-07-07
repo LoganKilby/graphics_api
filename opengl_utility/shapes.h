@@ -143,7 +143,7 @@ void gl_cube(v3 position, v4 color) {
     glUniformMatrix4fv(projection_location, 1, GL_FALSE, (f32 *)&gl_utility_context_ptr->projection_3d);
     glUniformMatrix4fv(view_location, 1, GL_FALSE, (f32 *)&gl_utility_context_ptr->view_3d);
     glUniformMatrix4fv(model_location, 1, GL_FALSE, (f32 *)&model);
-    glUniform4f(color_location, color.r, color.g, color.g, color.a);
+    glUniform4fv(color_location, 1, (float *)&color);
     glDrawArrays(GL_TRIANGLES, 0, 36);
 }
 
@@ -162,11 +162,11 @@ void gl_cube(v3 position, Basis *basis, v4 color) {
     int model_location = gl_get_uniform_location(program, "u_model");
     int color_location = gl_get_uniform_location(program, "u_color");
     
-    mat4 model = translate(mat4(1.0f), position) * rotate(basis);
+    mat4 model = translate(mat4(1.0f), position) * basis_to_mat4(basis);
     glUniformMatrix4fv(projection_location, 1, GL_FALSE, (f32 *)&gl_utility_context_ptr->projection_3d);
     glUniformMatrix4fv(view_location, 1, GL_FALSE, (f32 *)&gl_utility_context_ptr->view_3d);
     glUniformMatrix4fv(model_location, 1, GL_FALSE, (f32 *)&model);
-    glUniform4f(color_location, color.r, color.g, color.g, color.a);
+    glUniform4fv(color_location, 1, (float *)&color);
     glDrawArrays(GL_TRIANGLES, 0, 36);
 }
 

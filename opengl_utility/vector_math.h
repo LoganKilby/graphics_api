@@ -141,7 +141,7 @@ void basis_from_front(Basis *basis, v3 front) {
 }
 
 
-mat4 rotate(Basis *basis) {
+mat4 basis_to_mat4(Basis *basis) {
     mat4 result;
     result[0] = v4(basis->right.x, basis->up.x, basis->front.x, 0);
     result[1] = v4(basis->right.y, basis->up.y, basis->front.y, 0);

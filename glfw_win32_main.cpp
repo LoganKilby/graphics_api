@@ -118,10 +118,9 @@ void glfw_mouse_button_callback(GLFWwindow *window, int button, int action, int 
 
 int main(int argc, char **argv) {
 #if DEBUG
-    assert(SetCurrentDirectory(DEBUG_WORKING_DIR));
+    // being set in remedy
+    // assert(SetCurrentDirectory(DEBUG_WORKING_DIR));
 #endif
-    
-    u32 hash = hash_u32("D:/data/geo/Chest.mtl", sizeof("D:/data/geo/Chest.mtl")) % MAXIMUM_RESOURCE_COUNT;
     
     Platform = {};
     Platform.argv = argv;

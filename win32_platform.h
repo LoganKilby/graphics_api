@@ -10,7 +10,6 @@
 #include "external/glew-2.1.0/GL/glew.h"
 #include "external/glew-2.1.0/GL/wglew.h"
 
-#define DEBUG_WORKING_DIR "../../data"
 #define os_read_entire_file(file_name, bytes_read) win32_read_entire_file(file_name, bytes_read)
 #define APP_DLL_NAME "app.dll"
 #define APP_DLL_NAME_COPY "app.copy.dll"
